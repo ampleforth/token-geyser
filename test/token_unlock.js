@@ -53,9 +53,11 @@ contract('LockedPool', function (accounts) {
         expect(s.lastUnlockTimestampSec.add(s.durationSec)).to.eq.BN(s.endAtSec);
       });
       it('should log TokensLocked', async function () {
-        const l = r.logs[r.logs.length - 1].args;
-        expect(l.amount).to.eq.BN(toAmplDecimals(100));
-        expect(l.durationSec).to.eq.BN(ONE_YEAR);
+        const l = r.logs[r.logs.length - 1];
+        expect(l.event).to.eql('TokensLocked');
+        await checkAproxBal(l.args.amount, 100);
+        await checkAproxBal(l.args.total, 100);
+        expect(l.args.durationSec).to.eq.BN(ONE_YEAR);
       });
       it('should be protected', async function () {
         await ampl.approve(dist.address, toAmplDecimals(100));
@@ -79,6 +81,13 @@ contract('LockedPool', function (accounts) {
       });
       it('should updated the locked pool balance', async function () {
         await checkAproxBal(dist.totalLocked.call(), 150);
+      });
+      it('should log TokensLocked', async function () {
+        const l = r.logs[r.logs.length - 1];
+        expect(l.event).to.eql('TokensLocked');
+        await checkAproxBal(l.args.amount, 50);
+        await checkAproxBal(l.args.total, 150);
+        expect(l.args.durationSec).to.eq.BN(ONE_YEAR);
       });
       it('should create a schedule', async function () {
         const s = await dist.unlockSchedules.call(1);
@@ -127,7 +136,7 @@ contract('LockedPool', function (accounts) {
     });
   });
 
-  describe('unlock', function () {
+  describe('unlockTokens', function () {
     describe('single schedule', function () {
       describe('after waiting for 1/2 the duration', function () {
         beforeEach(async function () {
@@ -141,7 +150,6 @@ contract('LockedPool', function (accounts) {
             expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
             await checkAproxBal(dist.unlockTokens.call(), 50);
           });
-
           it('should transfer tokens to unlocked pool', async function () {
             expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
             expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
@@ -150,14 +158,12 @@ contract('LockedPool', function (accounts) {
             await checkAproxBal(dist.totalUnlocked.call(), 50);
             await checkAproxBal(dist.unlockTokens.call(), 0);
           });
-
-          it('should transfer tokens to unlocked pool', async function () {
-            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
-            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-            await dist.unlockSchedule(0);
-            await checkAproxBal(dist.totalLocked.call(), 50);
-            await checkAproxBal(dist.totalUnlocked.call(), 50);
-            await checkAproxBal(dist.unlockTokens.call(), 0);
+          it('should log TokensUnlocked', async function () {
+            r = await dist.unlockTokens();
+            const l = r.logs[r.logs.length - 1];
+            expect(l.event).to.eql('TokensUnlocked');
+            await checkAproxBal(l.args.amount, 50);
+            await checkAproxBal(l.args.total, 50);
           });
         });
 
@@ -165,32 +171,17 @@ contract('LockedPool', function (accounts) {
           beforeEach(async function () {
             await invokeRebase(ampl, 100);
           });
-
           it('should unlock 1/2 the tokens', async function () {
             expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
             await checkAproxBal(dist.unlockTokens.call(), 100);
           });
-
-          describe('unlockTokens', function () {
-            it('should transfer tokens to unlocked pool', async function () {
-              expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
-              expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-              await dist.unlockTokens();
-              await checkAproxBal(dist.totalLocked.call(), 100);
-              await checkAproxBal(dist.totalUnlocked.call(), 100);
-              await checkAproxBal(dist.unlockTokens.call(), 0);
-            });
-          });
-
-          describe('unlockSchedule', function () {
-            it('should transfer tokens to unlocked pool', async function () {
-              expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
-              expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-              await dist.unlockSchedule(0);
-              await checkAproxBal(dist.totalLocked.call(), 100);
-              await checkAproxBal(dist.totalUnlocked.call(), 100);
-              await checkAproxBal(dist.unlockTokens.call(), 0);
-            });
+          it('should transfer tokens to unlocked pool', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
+            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+            await dist.unlockTokens();
+            await checkAproxBal(dist.totalLocked.call(), 100);
+            await checkAproxBal(dist.totalUnlocked.call(), 100);
+            await checkAproxBal(dist.unlockTokens.call(), 0);
           });
         });
 
@@ -198,32 +189,17 @@ contract('LockedPool', function (accounts) {
           beforeEach(async function () {
             await invokeRebase(ampl, -50);
           });
-
           it('should unlock 1/2 the tokens', async function () {
             expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(50));
             await checkAproxBal(dist.unlockTokens.call(), 25);
           });
-
-          describe('unlockTokens', function () {
-            it('should transfer tokens to unlocked pool', async function () {
-              expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(50));
-              expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-              await dist.unlockTokens();
-              await checkAproxBal(dist.totalLocked.call(), 25);
-              await checkAproxBal(dist.totalUnlocked.call(), 25);
-              await checkAproxBal(dist.unlockTokens.call(), 0);
-            });
-          });
-
-          describe('unlockSchedule', function () {
-            it('should transfer tokens to unlocked pool', async function () {
-              expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(50));
-              expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-              await dist.unlockSchedule(0);
-              await checkAproxBal(dist.totalLocked.call(), 25);
-              await checkAproxBal(dist.totalUnlocked.call(), 25);
-              await checkAproxBal(dist.unlockTokens.call(), 0);
-            });
+          it('should transfer tokens to unlocked pool', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(50));
+            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+            await dist.unlockTokens();
+            await checkAproxBal(dist.totalLocked.call(), 25);
+            await checkAproxBal(dist.totalUnlocked.call(), 25);
+            await checkAproxBal(dist.unlockTokens.call(), 0);
           });
         });
       });
@@ -234,31 +210,23 @@ contract('LockedPool', function (accounts) {
           await dist.lockTokens(toAmplDecimals(100), ONE_YEAR);
           await chain.waitForSomeTime(2 * ONE_YEAR);
         });
-
         it('should unlock all the tokens', async function () {
           await checkAproxBal(dist.unlockTokens.call(), 100);
         });
-
-        describe('unlockTokens', function () {
-          it('should transfer tokens to unlocked pool', async function () {
-            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
-            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-            await dist.unlockTokens();
-            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(0));
-            await checkAproxBal(dist.totalUnlocked.call(), 100);
-            await checkAproxBal(dist.unlockTokens.call(), 0);
-          });
+        it('should transfer tokens to unlocked pool', async function () {
+          expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
+          expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+          await dist.unlockTokens();
+          expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(0));
+          await checkAproxBal(dist.totalUnlocked.call(), 100);
+          await checkAproxBal(dist.unlockTokens.call(), 0);
         });
-
-        describe('unlockSchedule', function () {
-          it('should transfer tokens to unlocked pool', async function () {
-            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
-            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-            await dist.unlockSchedule(0);
-            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(0));
-            await checkAproxBal(dist.totalUnlocked.call(), 100);
-            await checkAproxBal(dist.unlockTokens.call(), 0);
-          });
+        it('should log TokensUnlocked', async function () {
+          r = await dist.unlockTokens();
+          const l = r.logs[r.logs.length - 1];
+          expect(l.event).to.eql('TokensUnlocked');
+          await checkAproxBal(l.args.amount, 100);
+          await checkAproxBal(l.args.total, 0);
         });
       });
     });
@@ -271,49 +239,169 @@ contract('LockedPool', function (accounts) {
         await dist.lockTokens(toAmplDecimals(100), ONE_YEAR);
         await chain.waitForSomeTime(ONE_YEAR / 10);
       });
-
       it('should return the total unlock value', async function () {
         await checkAproxBal(dist.unlockTokens.call(), 70);
       });
+      it('should transfer tokens to unlocked pool', async function () {
+        expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
+        expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+        await dist.unlockTokens();
+        await checkAproxBal(dist.totalLocked.call(), 130);
+        await checkAproxBal(dist.totalUnlocked.call(), 70);
+        await checkAproxBal(dist.unlockTokens.call(), 0);
+      });
+      it('should log TokensUnlocked', async function () {
+        r = await dist.unlockTokens();
+        const l = r.logs[r.logs.length - 1];
+        expect(l.event).to.eql('TokensUnlocked');
+        await checkAproxBal(l.args.amount, 70);
+        await checkAproxBal(l.args.total, 130);
+      });
+      it('should continue linear the unlock', async function () {
+        await dist.unlockTokens();
+        await chain.waitForSomeTime(ONE_YEAR / 5);
+        await dist.unlockTokens();
+        await checkAproxBal(dist.totalLocked.call(), 90);
+        await checkAproxBal(dist.totalUnlocked.call(), 110);
+        await checkAproxBal(dist.unlockTokens.call(), 0);
+        await chain.waitForSomeTime(ONE_YEAR / 5);
+        await dist.unlockTokens();
+        await checkAproxBal(dist.totalLocked.call(), 50);
+        await checkAproxBal(dist.totalUnlocked.call(), 150);
+        await checkAproxBal(dist.unlockTokens.call(), 0);
+      });
+    });
+  });
 
-      describe('unlockTokens', function () {
-        it('should transfer tokens to unlocked pool', async function () {
-          expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
-          expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
-          await dist.unlockTokens();
-          await checkAproxBal(dist.totalLocked.call(), 130);
-          await checkAproxBal(dist.totalUnlocked.call(), 70);
-          await checkAproxBal(dist.unlockTokens.call(), 0);
+  describe('unlockSchedule', function () {
+    describe('single schedule', function () {
+      describe('after waiting for 1/2 the duration', function () {
+        beforeEach(async function () {
+          await ampl.approve(dist.address, toAmplDecimals(100));
+          await dist.lockTokens(toAmplDecimals(100), ONE_YEAR);
+          await chain.waitForSomeTime(ONE_YEAR / 2);
         });
 
-        it('should continue linear the unlock', async function () {
-          await dist.unlockTokens();
-          await chain.waitForSomeTime(ONE_YEAR / 5);
-          await dist.unlockTokens();
-          await checkAproxBal(dist.totalLocked.call(), 90);
-          await checkAproxBal(dist.totalUnlocked.call(), 110);
-          await checkAproxBal(dist.unlockTokens.call(), 0);
-          await chain.waitForSomeTime(ONE_YEAR / 5);
-          await dist.unlockTokens();
-          await checkAproxBal(dist.totalLocked.call(), 50);
-          await checkAproxBal(dist.totalUnlocked.call(), 150);
-          await checkAproxBal(dist.unlockTokens.call(), 0);
+        describe('when supply is unchanged', function () {
+          it('should unlock 1/2 the tokens', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
+            await checkAproxBal(dist.unlockTokens.call(), 50);
+          });
+          it('should transfer tokens to unlocked pool', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
+            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+            await dist.unlockSchedule(0);
+            await checkAproxBal(dist.totalLocked.call(), 50);
+            await checkAproxBal(dist.totalUnlocked.call(), 50);
+            await checkAproxBal(dist.unlockTokens.call(), 0);
+          });
+          it('should log TokensUnlocked', async function () {
+            r = await dist.unlockSchedule(0);
+            const l = r.logs[r.logs.length - 1];
+            expect(l.event).to.eql('TokensUnlocked');
+            await checkAproxBal(l.args.amount, 50);
+            await checkAproxBal(l.args.total, 50);
+          });
+        });
+
+        describe('when rebase increases supply', function () {
+          beforeEach(async function () {
+            await invokeRebase(ampl, 100);
+          });
+          it('should unlock 1/2 the tokens', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
+            await checkAproxBal(dist.unlockTokens.call(), 100);
+          });
+          it('should transfer tokens to unlocked pool', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
+            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+            await dist.unlockSchedule(0);
+            await checkAproxBal(dist.totalLocked.call(), 100);
+            await checkAproxBal(dist.totalUnlocked.call(), 100);
+            await checkAproxBal(dist.unlockTokens.call(), 0);
+          });
+        });
+
+        describe('when rebase decreases supply', function () {
+          beforeEach(async function () {
+            await invokeRebase(ampl, -50);
+          });
+          it('should unlock 1/2 the tokens', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(50));
+            await checkAproxBal(dist.unlockTokens.call(), 25);
+          });
+          it('should transfer tokens to unlocked pool', async function () {
+            expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(50));
+            expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+            await dist.unlockSchedule(0);
+            await checkAproxBal(dist.totalLocked.call(), 25);
+            await checkAproxBal(dist.totalUnlocked.call(), 25);
+            await checkAproxBal(dist.unlockTokens.call(), 0);
+          });
         });
       });
 
-      describe('unlockSchedule', function () {
+      describe('after waiting > the duration', function () {
+        beforeEach(async function () {
+          await ampl.approve(dist.address, toAmplDecimals(100));
+          await dist.lockTokens(toAmplDecimals(100), ONE_YEAR);
+          await chain.waitForSomeTime(2 * ONE_YEAR);
+        });
+        it('should unlock all the tokens', async function () {
+          await checkAproxBal(dist.unlockTokens.call(), 100);
+        });
         it('should transfer tokens to unlocked pool', async function () {
-          expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
+          expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(100));
           expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
           await dist.unlockSchedule(0);
-          await checkAproxBal(dist.totalLocked.call(), 140);
-          await checkAproxBal(dist.totalUnlocked.call(), 60);
-          await checkAproxBal(dist.unlockTokens.call(), 10);
-          await dist.unlockSchedule(1);
-          await checkAproxBal(dist.totalLocked.call(), 130);
-          await checkAproxBal(dist.totalUnlocked.call(), 70);
+          expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(0));
+          await checkAproxBal(dist.totalUnlocked.call(), 100);
           await checkAproxBal(dist.unlockTokens.call(), 0);
         });
+        it('should log TokensUnlocked', async function () {
+          r = await dist.unlockSchedule(0);
+          const l = r.logs[r.logs.length - 1];
+          expect(l.event).to.eql('TokensUnlocked');
+          await checkAproxBal(l.args.amount, 100);
+          await checkAproxBal(l.args.total, 0);
+        });
+      });
+    });
+
+    describe('multi schedule', function () {
+      beforeEach(async function () {
+        await ampl.approve(dist.address, toAmplDecimals(200));
+        await dist.lockTokens(toAmplDecimals(100), ONE_YEAR);
+        await chain.waitForSomeTime(ONE_YEAR / 2);
+        await dist.lockTokens(toAmplDecimals(100), ONE_YEAR);
+        await chain.waitForSomeTime(ONE_YEAR / 10);
+      });
+      it('should return the total unlock value', async function () {
+        await checkAproxBal(dist.unlockTokens.call(), 70);
+      });
+      it('should transfer tokens to unlocked pool', async function () {
+        expect(await dist.totalLocked()).to.eq.BN(toAmplDecimals(200));
+        expect(await dist.totalUnlocked()).to.eq.BN(toAmplDecimals(0));
+        await dist.unlockSchedule(0);
+        await checkAproxBal(dist.totalLocked.call(), 140);
+        await checkAproxBal(dist.totalUnlocked.call(), 60);
+        await checkAproxBal(dist.unlockTokens.call(), 10);
+        await dist.unlockSchedule(1);
+        await checkAproxBal(dist.totalLocked.call(), 130);
+        await checkAproxBal(dist.totalUnlocked.call(), 70);
+        await checkAproxBal(dist.unlockTokens.call(), 0);
+      });
+      it('should log TokensUnlocked', async function () {
+        r = await dist.unlockSchedule(0);
+        let l = r.logs[r.logs.length - 1];
+        expect(l.event).to.eql('TokensUnlocked');
+        await checkAproxBal(l.args.amount, 60);
+        await checkAproxBal(l.args.total, 140);
+        r = await dist.unlockSchedule(1);
+        l = r.logs[r.logs.length - 1];
+        expect(l.event).to.eql('TokensUnlocked');
+        await checkAproxBal(l.args.amount, 10);
+        await checkAproxBal(l.args.total, 130);
       });
     });
   });

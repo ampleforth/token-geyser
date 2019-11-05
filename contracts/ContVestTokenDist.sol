@@ -17,10 +17,10 @@ import "./TokenPool.sol";
 contract ContVestTokenDist is IStaking, Ownable {
     using SafeMath for uint256;
 
-    event TokensLocked(uint256 amount, uint256 durationSec);
-    event TokensUnlocked(uint256 amount, uint256 timestampSec);
     event Staked(address indexed user, uint256 amount, uint256 total, bytes data);
     event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
+    event TokensLocked(uint256 amount, uint256 durationSec, uint256 total);
+    event TokensUnlocked(uint256 amount, uint256 total);
 
     TokenPool private _stakingPool;
     TokenPool private _unlockedPool;
@@ -157,7 +157,8 @@ contract ContVestTokenDist is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        _unlockedPool.transfer(msg.sender, amount);
+        // TODO: Calculate the claimable unlocked amount
+        require(_stakingPool.transfer(msg.sender, amount));
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), "");
     }
@@ -218,7 +219,7 @@ contract ContVestTokenDist is IStaking, Ownable {
         _totalLockedShares = _totalLockedShares.add(mintedLockedShares);
 
         require(_lockedPool.getToken().transferFrom(msg.sender, address(_lockedPool), amount));
-        emit TokensLocked(amount, durationSec);
+        emit TokensLocked(amount, durationSec, totalLocked());
     }
 
     function unlockTokens() external returns (uint256) {
@@ -236,7 +237,7 @@ contract ContVestTokenDist is IStaking, Ownable {
         }
 
         require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
-        emit TokensUnlocked(unlockedTokens, now);
+        emit TokensUnlocked(unlockedTokens, totalLocked());
 
         return unlockedTokens;
     }
@@ -247,7 +248,7 @@ contract ContVestTokenDist is IStaking, Ownable {
         _totalLockedShares = _totalLockedShares.sub(unlockedShares);
 
         require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
-        emit TokensUnlocked(unlockedTokens, now);
+        emit TokensUnlocked(unlockedTokens, totalLocked());
 
         return unlockedTokens;
     }
