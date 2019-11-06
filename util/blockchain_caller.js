@@ -8,28 +8,34 @@ class BlockchainCaller {
     return this._web3;
   }
   rpcmsg (method, params = []) {
-    const id = Date.now();
     return {
       jsonrpc: '2.0',
       method: method,
       params: params,
-      'id': id
+      id: new Date().getTime()
     };
   }
 }
 
 BlockchainCaller.prototype.sendRawToBlockchain = function (method, params) {
   return new Promise((resolve, reject) => {
-    this.web3.currentProvider.sendAsync(this.rpcmsg(method, params), function (e, r) {
+    this.web3.currentProvider.send(this.rpcmsg(method, params), function (e, r) {
       if (e) reject(e);
       resolve(r);
     });
   });
 };
 
+BlockchainCaller.prototype.waitForNBlocks = async function (n) {
+  for (let i = 0; i < n; i++) {
+    await this.sendRawToBlockchain('evm_mine');
+  }
+};
+
 BlockchainCaller.prototype.waitForSomeTime = async function (durationInSec) {
   try {
     await this.sendRawToBlockchain('evm_increaseTime', [durationInSec]);
+    await this.sendRawToBlockchain('evm_mine');
   } catch (e) {
     return new Promise((resolve, reject) => {
       setTimeout(() => resolve(), durationInSec * 1000);
@@ -42,9 +48,19 @@ BlockchainCaller.prototype.getUserAccounts = async function () {
   return accounts.result;
 };
 
+BlockchainCaller.prototype.getBlockHeight = async function () {
+  const block = await this.web3.eth.getBlock('latest');
+  return block.number;
+};
+
 BlockchainCaller.prototype.getBlockGasLimit = async function () {
   const block = await this.web3.eth.getBlock('latest');
   return block.gasLimit;
+};
+
+BlockchainCaller.prototype.currentTime = async function () {
+  const block = await this.sendRawToBlockchain('eth_getBlockByNumber', ['latest', false]);
+  return parseInt(block.result.timestamp);
 };
 
 BlockchainCaller.prototype.getTransactionMetrics = async function (hash) {
@@ -68,9 +84,18 @@ BlockchainCaller.prototype.isEthException = async function (promise) {
   } catch (e) {
     msg = e.message;
   }
-  return msg.includes('VM Exception while processing transaction: revert') ||
-      msg.includes('VM Exception while processing transaction: invalid opcode') ||
-      msg.includes('exited with an error (status 0)')
+  return (
+    msg.includes('VM Exception while processing transaction: revert') ||
+    msg.includes('invalid opcode') ||
+    msg.includes('exited with an error (status 0)')
+  );
+};
+
+// Parse compound-specific error codes
+BlockchainCaller.prototype.isCompoundException = async function (promise) {
+  const tx = await promise;
+  const errors = tx.logs.filter(l => l.event === 'Failure');
+  return errors.length > 0;
 };
 
 module.exports = BlockchainCaller;

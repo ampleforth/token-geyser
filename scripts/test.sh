@@ -10,7 +10,7 @@ process-pid(){
 }
 
 run-unit-tests(){
-  npx truffle --network $1 test $PROJECT_DIR/test/unit/*.js
+  npx truffle --network $1 test $PROJECT_DIR/test/*.js
 }
 
 run-all-tests(){
@@ -36,6 +36,8 @@ run-all-tests(){
   }
   trap cleanup EXIT
 }
+
+$DIR/compile-dep-contracts.sh
 
 run-all-tests "ganacheUnitTest"
 
