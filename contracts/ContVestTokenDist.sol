@@ -31,6 +31,7 @@ contract ContVestTokenDist is IStaking, Ownable {
     uint256 private _totalStakingShareSeconds = 0;
     uint256 private _lastAccountingTimestampSec = 0;
     uint256 private _totalLockedShares = 0;
+    uint256 private _maxUnlockSchedules = 0;
 
     struct Stake {
         uint256 stakingShares;
@@ -55,7 +56,7 @@ contract ContVestTokenDist is IStaking, Ownable {
 
     UnlockSchedule[] public unlockSchedules;
 
-    constructor(IERC20 stakingToken, IERC20 distributionToken) public {
+    constructor(IERC20 stakingToken, IERC20 distributionToken, uint256 maxUnlockSchedules) public {
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
         _lockedPool = new TokenPool(distributionToken);
@@ -63,6 +64,8 @@ contract ContVestTokenDist is IStaking, Ownable {
         assert(_stakingPool.owner() == address(this));
         assert(_unlockedPool.owner() == address(this));
         assert(_lockedPool.owner() == address(this));
+
+        _maxUnlockSchedules = maxUnlockSchedules;
     }
 
     // Pool info
@@ -216,6 +219,8 @@ contract ContVestTokenDist is IStaking, Ownable {
     }
 
     function lockTokens(uint256 amount, uint256 durationSec) external onlyOwner {
+        require(unlockSchedules.length < _maxUnlockSchedules);
+
         // TODO: If we start with 1 share = 1 token,
         // will we hit rounding errors in the future
         uint256 mintedLockedShares = (totalLocked() > 0)
@@ -248,17 +253,6 @@ contract ContVestTokenDist is IStaking, Ownable {
             unlockedTokens = unlockedShares.mul(totalLocked()).div(_totalLockedShares);
             _totalLockedShares = _totalLockedShares.sub(unlockedShares);
         }
-
-        require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
-        emit TokensUnlocked(unlockedTokens, totalLocked());
-
-        return unlockedTokens;
-    }
-
-    function unlockSchedule(uint256 s) external returns (uint256) {
-        uint256 unlockedShares = unlockScheduleShares(s);
-        uint256 unlockedTokens = unlockedShares.mul(totalLocked()).div(_totalLockedShares);
-        _totalLockedShares = _totalLockedShares.sub(unlockedShares);
 
         require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
         emit TokensUnlocked(unlockedTokens, totalLocked());

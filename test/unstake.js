@@ -22,7 +22,7 @@ async function setupContractAndAccounts (accounts) {
   await ampl.initialize(owner);
   await ampl.setMonetaryPolicy(owner);
 
-  dist = await ContVestTokenDist.new(ampl.address, ampl.address);
+  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10);
 
   await ampl.transfer(anotherAccount, toAmplDecimals(1000));
   await ampl.approve(dist.address, toAmplDecimals(1000), { from: anotherAccount });
