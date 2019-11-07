@@ -4,7 +4,7 @@ const AMPL_DECIMALS = 9;
 const INITIAL_AMPL_SUPPLY = toAmplDecimals(50000000);
 
 function toAmplDecimals (x) {
-  return new BN(10 ** AMPL_DECIMALS).mul(new BN(x));
+  return new BN(10 ** AMPL_DECIMALS).mul(new BN(parseInt(x * 100))).div(new BN(100));
 }
 
 async function invokeRebase (ampl, perc) {

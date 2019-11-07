@@ -49,7 +49,7 @@ module.exports = {
               // project-specific
               "rebase", "gons", "frg", "rng", "blockchain", "minlot",
               "redemptions", "rebased", "ganache", "ethclient",
-              "bytecode", "Binance", "ampl",
+              "bytecode", "Binance", "ampl", "unstake", "unstaked", "unstaking",
 
               // names
               "nithin", "naguib"

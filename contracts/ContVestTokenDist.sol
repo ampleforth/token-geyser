@@ -19,6 +19,7 @@ contract ContVestTokenDist is IStaking, Ownable {
 
     event Staked(address indexed user, uint256 amount, uint256 total, bytes data);
     event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
+    event TokensClaimed(address indexed user, uint256 amount);
     event TokensLocked(uint256 amount, uint256 durationSec, uint256 total);
     event TokensUnlocked(uint256 amount, uint256 total);
 
@@ -29,7 +30,6 @@ contract ContVestTokenDist is IStaking, Ownable {
     uint256 private _totalStakingShares = 0;
     uint256 private _totalStakingShareSeconds = 0;
     uint256 private _lastAccountingTimestampSec = 0;
-
     uint256 private _totalLockedShares = 0;
 
     struct Stake {
@@ -150,6 +150,9 @@ contract ContVestTokenDist is IStaking, Ownable {
         account.lastAccountingTimestampSec = now;
         _userAccounts[msg.sender] = account;
 
+        // Calculate the reward amount as a share of user's stakingShareSecondsToBurn to _totalStakingShareSecond
+        uint256 rewardAmount = totalUnlocked().mul(stakingShareSecondsToBurn).div(_totalStakingShareSeconds);
+
         // 2. Global Accounting
         _totalStakingShareSeconds = _totalStakingShareSeconds.sub(stakingShareSecondsToBurn);
         _totalStakingShares = _totalStakingShares.sub(stakingSharesToBurn);
@@ -157,14 +160,21 @@ contract ContVestTokenDist is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        // TODO: Calculate the claimable unlocked amount
         require(_stakingPool.transfer(msg.sender, amount));
+        require(_unlockedPool.transfer(msg.sender, rewardAmount));
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), "");
+        emit TokensClaimed(msg.sender, rewardAmount);
+    }
+
+    function totalRewardsFor(address addr) public view returns (uint256) {
+        return _totalStakingShareSeconds > 0 ?
+            totalUnlocked().mul(_userAccounts[addr].stakingShareSeconds).div(_totalStakingShareSeconds) : 0;
     }
 
     function totalStakedFor(address addr) public view returns (uint256) {
-        return totalStaked().mul(_userAccounts[addr].stakingShares).div(_totalStakingShares);
+        return _totalStakingShares > 0 ?
+            totalStaked().mul(_userAccounts[addr].stakingShares).div(_totalStakingShares) : 0;
     }
 
     function totalStaked() public view returns (uint256) {
@@ -180,6 +190,9 @@ contract ContVestTokenDist is IStaking, Ownable {
     }
 
     function updateAccounting() public {
+        // unlock tokens
+        unlockTokens();
+
         // Global accounting
         uint256 newStakingShareSeconds = now.sub(_lastAccountingTimestampSec).mul(_totalStakingShares);
         _totalStakingShareSeconds = _totalStakingShareSeconds.add(newStakingShareSeconds);
@@ -222,7 +235,7 @@ contract ContVestTokenDist is IStaking, Ownable {
         emit TokensLocked(amount, durationSec, totalLocked());
     }
 
-    function unlockTokens() external returns (uint256) {
+    function unlockTokens() public returns (uint256) {
         uint256 unlockedTokens = 0;
 
         if(_totalLockedShares == 0) {
