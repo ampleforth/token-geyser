@@ -44,7 +44,7 @@ module.exports = {
               "eth", "args", "util", "utils", "msg", "prev", "bal",
               "init", "params", "mul", "async", "vals", "fns", "addrs",
               "fns", "num", "dev", "pre","abi", "gte","rnd", "chk", "bals", "lte",
-              "addr", "perc", "opcode", "aprox",
+              "addr", "perc", "opcode", "aprox", "str",
 
               // project-specific
               "rebase", "gons", "frg", "rng", "blockchain", "minlot",

@@ -19,7 +19,7 @@ class BlockchainCaller {
 
 BlockchainCaller.prototype.sendRawToBlockchain = function (method, params) {
   return new Promise((resolve, reject) => {
-    this.web3.currentProvider.send(this.rpcmsg(method, params), function (e, r) {
+    this.web3.currentProvider.sendAsync(this.rpcmsg(method, params), function (e, r) {
       if (e) reject(e);
       resolve(r);
     });
@@ -33,14 +33,8 @@ BlockchainCaller.prototype.waitForNBlocks = async function (n) {
 };
 
 BlockchainCaller.prototype.waitForSomeTime = async function (durationInSec) {
-  try {
-    await this.sendRawToBlockchain('evm_increaseTime', [durationInSec]);
-    await this.sendRawToBlockchain('evm_mine');
-  } catch (e) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => resolve(), durationInSec * 1000);
-    });
-  }
+  await this.sendRawToBlockchain('evm_increaseTime', [durationInSec]);
+  await this.sendRawToBlockchain('evm_mine');
 };
 
 BlockchainCaller.prototype.getUserAccounts = async function () {

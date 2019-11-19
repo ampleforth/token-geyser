@@ -13,6 +13,9 @@ script:
   - ./scripts/setup-ci.sh
   - npm run lint
   - npm run test
+  - npm run coverage
+after_success:
+  - cat coverage/lcov.info | npx coveralls
 notifications:
   email:
     - dev-support@ampleforth.org

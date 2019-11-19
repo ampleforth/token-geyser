@@ -37,7 +37,7 @@ run-all-tests(){
   trap cleanup EXIT
 }
 
-$DIR/compile-dep-contracts.sh
+npm run compile-contracts
 
 run-all-tests "ganacheUnitTest"
 
