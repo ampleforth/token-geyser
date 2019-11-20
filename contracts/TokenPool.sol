@@ -3,10 +3,14 @@ pragma solidity 0.4.24;
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 
+/**
+ * @title A simple holder of tokens.
+ * This is a simple contract to hold tokens. It's useful in the case where a separate contract
+ * needs to hold multiple distinct pools of the same token.
+ */
 contract TokenPool is Ownable {
     IERC20 _token;
 
-    // TODO: setup owner
     constructor(IERC20 token) public {
         _token = token;
     }

@@ -1,9 +1,5 @@
 pragma solidity 0.4.24;
 
-// TODO:
-// - Add LockedTokens
-// - Add ERC20 functionality for CVTD tokens
-
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
@@ -12,7 +8,22 @@ import "./IStaking.sol";
 import "./TokenPool.sol";
 
 /**
+ * @title Continuous Vesting Token Distribution
+ * @dev A smart-contract based mechanism to distribute tokens over time, inspired loosely by
+ *      Compound and Uniswap.
  *
+ *      Distribution tokens are added to a locked pool in the contract and become unlocked over time
+ *      according to a once-configurable unlock schedule. Once unlocked, they are available to be
+ *      claimed by users.
+ *
+ *      A user may deposit tokens to accrue ownership share over the unlocked pool. This owner share
+ *      is a function of the number of tokens deposited as well as the length of time deposited.
+ *      Specifically, a user's share of the currently-unlocked pool equals their "deposit-seconds"
+ *      divided by the global "deposit-seconds". This aligns the new token distribution with long
+ *      term supporters of the project, addressing one of the major drawbacks of simple airdrops.
+ *
+ *      More background and motivation available at:
+ *      https://github.com/ampleforth/RFCs/blob/master/RFCs/rfc-1.md
  */
 contract ContVestTokenDist is IStaking, Ownable {
     using SafeMath for uint256;
@@ -27,23 +38,40 @@ contract ContVestTokenDist is IStaking, Ownable {
     TokenPool private _unlockedPool;
     TokenPool private _lockedPool;
 
+    //
+    // Global accounting state
+    //
     uint256 private _totalStakingShares = 0;
     uint256 private _totalStakingShareSeconds = 0;
     uint256 private _lastAccountingTimestampSec = 0;
     uint256 private _totalLockedShares = 0;
     uint256 private _maxUnlockSchedules = 0;
 
+    //
+    // User accounting state
+    //
+    // Represents a single stake for a user. A user may have multiple.
     struct Stake {
         uint256 stakingShares;
         uint256 timestampSec;
     }
 
-    struct UserAccount {
-        uint256 stakingShares;  // TODO: needed?
-        uint256 stakingShareSeconds;  // TODO: needed?
-        uint256 lastAccountingTimestampSec;  // TODO: needed?
+    // Caches aggregated values from the User->Stake[] map to save computation.
+    struct UserTotals {
+        uint256 stakingShares;
+        uint256 stakingShareSeconds;
+        uint256 lastAccountingTimestampSec;
     }
 
+    // Aggregated staking values per user
+    mapping(address => UserTotals) private _userTotals;
+
+    // The collection of stakes for each user. Ordered by timestamp, earliest to latest.
+    mapping(address => Stake[]) private _userStakes;
+
+    //
+    // Locked/Unlocked Accounting state
+    //
     struct UnlockSchedule {
         uint256 initialLockedShares;
         uint256 lastUnlockTimestampSec;
@@ -51,11 +79,13 @@ contract ContVestTokenDist is IStaking, Ownable {
         uint256 durationSec;
     }
 
-    mapping(address => UserAccount) private _userAccounts;
-    mapping(address => Stake[]) private _userStakes;
-
     UnlockSchedule[] public unlockSchedules;
 
+    /**
+     * @param stakingToken The token users deposit as stake.
+     * @param distributionToken The token users receive as they unstake.
+     * @param maxUnlockSchedules Max number of unlock stages, to guard against hitting gas limit.
+     */
     constructor(IERC20 stakingToken, IERC20 distributionToken, uint256 maxUnlockSchedules) public {
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
@@ -68,25 +98,45 @@ contract ContVestTokenDist is IStaking, Ownable {
         _maxUnlockSchedules = maxUnlockSchedules;
     }
 
-    // Pool info
+    /**
+     * @return The token users deposit as stake.
+     */
     function getStakingToken() public view returns (IERC20) {
         return _stakingPool.getToken();
     }
 
+    /**
+     * @return The token users receive as they unstake.
+     */
     function getDistributionToken() public view returns (IERC20) {
-        // assert(_unlockedPool.getToken() == _lockedPool.getToken());
+        assert(_unlockedPool.getToken() == _lockedPool.getToken());
         return _unlockedPool.getToken();
     }
 
-    // Staking
+    /**
+     * @dev Transfers amount of deposit tokens from the user.
+     * @param amount Number of deposit tokens to stake.
+     * @param data Not used.
+     */
     function stake(uint256 amount, bytes data) external {
         _stakeFor(msg.sender, amount);
     }
 
+    /**
+     * @dev Transfers amount of deposit tokens from the caller on behalf of user.
+     * @param user User address who gains credit for this stake operation.
+     * @param amount Number of deposit tokens to stake.
+     * @param data Not used.
+     */
     function stakeFor(address user, uint256 amount, bytes data) external {
         _stakeFor(user, amount);
     }
 
+    /**
+     * @dev Private implementation of staking methods.
+     * @param user User address who gains credit for this stake operation.
+     * @param amount Number of deposit tokens to stake.
+     */
     function _stakeFor(address user, uint256 amount) private {
         updateAccounting();
 
@@ -96,9 +146,9 @@ contract ContVestTokenDist is IStaking, Ownable {
             ? _totalStakingShares.mul(amount).div(totalStaked())
             : amount;
 
-        UserAccount storage account = _userAccounts[user];
-        account.stakingShares = account.stakingShares.add(mintedStakingShares);
-        account.lastAccountingTimestampSec = now;
+        UserTotals storage totals = _userTotals[user];
+        totals.stakingShares = totals.stakingShares.add(mintedStakingShares);
+        totals.lastAccountingTimestampSec = now;
 
         Stake memory newStake = Stake(mintedStakingShares, now);
         _userStakes[user].push(newStake);
@@ -114,6 +164,12 @@ contract ContVestTokenDist is IStaking, Ownable {
         emit Staked(user, amount, totalStakedFor(user), "");
     }
 
+    /**
+     * @dev Unstakes a certain amount of previously deposited tokens. User also receives their
+     * alotted number of distribution tokens.
+     * @param amount Number of deposit tokens to unstake / withdraw.
+     * @param data Not used.
+     */
     function unstake(uint256 amount, bytes data) external {
         updateAccounting();
 
@@ -123,7 +179,7 @@ contract ContVestTokenDist is IStaking, Ownable {
         require(userStakedAmpl >= amount);
 
         // 1. User Accounting
-        UserAccount memory account = _userAccounts[msg.sender];
+        UserTotals memory totals = _userTotals[msg.sender];
         Stake[] storage accountStakes = _userStakes[msg.sender];
         uint256 stakingSharesToBurn = _totalStakingShares.mul(amount).div(totalStaked());
 
@@ -148,13 +204,17 @@ contract ContVestTokenDist is IStaking, Ownable {
                 break;
             }
         }
-        account.stakingShareSeconds = account.stakingShareSeconds.sub(stakingShareSecondsToBurn);
-        account.stakingShares = account.stakingShares.sub(stakingSharesToBurn);
-        account.lastAccountingTimestampSec = now;
-        _userAccounts[msg.sender] = account;
+        totals.stakingShareSeconds = totals.stakingShareSeconds.sub(stakingShareSecondsToBurn);
+        totals.stakingShares = totals.stakingShares.sub(stakingSharesToBurn);
+        totals.lastAccountingTimestampSec = now;
+        _userTotals[msg.sender] = totals;
 
-        // Calculate the reward amount as a share of user's stakingShareSecondsToBurn to _totalStakingShareSecond
-        uint256 rewardAmount = totalUnlocked().mul(stakingShareSecondsToBurn).div(_totalStakingShareSeconds);
+        // Calculate the reward amount as a share of user's stakingShareSecondsToBurn to
+        // _totalStakingShareSecond.
+        uint256 rewardAmount =
+            totalUnlocked()
+            .mul(stakingShareSecondsToBurn)
+            .div(_totalStakingShareSeconds);
 
         // 2. Global Accounting
         _totalStakingShareSeconds = _totalStakingShareSeconds.sub(stakingShareSecondsToBurn);
@@ -170,54 +230,100 @@ contract ContVestTokenDist is IStaking, Ownable {
         emit TokensClaimed(msg.sender, rewardAmount);
     }
 
+    /**
+     * @param addr The user to look up staking rewards for.
+     * @return The number of distribution tokens addr would currently receive for their stake.
+     */
     function totalRewardsFor(address addr) public view returns (uint256) {
-        return _totalStakingShareSeconds > 0 ?
-            totalUnlocked().mul(_userAccounts[addr].stakingShareSeconds).div(_totalStakingShareSeconds) : 0;
+        return _totalStakingShareSeconds > 0
+            ? totalUnlocked()
+            .mul(_userTotals[addr].stakingShareSeconds)
+            .div(_totalStakingShareSeconds)
+            : 0;
     }
 
+    /**
+     * @param addr The user to look up staking information for.
+     * @return The number of staking tokens deposited for addr.
+     */
     function totalStakedFor(address addr) public view returns (uint256) {
         return _totalStakingShares > 0 ?
-            totalStaked().mul(_userAccounts[addr].stakingShares).div(_totalStakingShares) : 0;
+            totalStaked().mul(_userTotals[addr].stakingShares).div(_totalStakingShares) : 0;
     }
 
+    /**
+     * @return The total number of deposit tokens staked globally, by all users.
+     */
     function totalStaked() public view returns (uint256) {
         return _stakingPool.balance();
     }
 
+    /**
+     * @dev Note that this application has a staking token as well as a distribution token, which
+     * may be different. This function is required by EIP-900.
+     * @return The deposit token used for staking.
+     */
     function token() external view returns (address) {
         return address(getStakingToken());
     }
 
+    /**
+     * @return False. This application does not support staking history.
+     */
     function supportsHistory() external pure returns (bool) {
         return false;
     }
 
+    /**
+     * @dev A globally callable function to update the accounting state of the system.
+     *      Global state and state for the caller are updated.
+     */
     function updateAccounting() public {
         // unlock tokens
         unlockTokens();
 
         // Global accounting
-        uint256 newStakingShareSeconds = now.sub(_lastAccountingTimestampSec).mul(_totalStakingShares);
+        uint256 newStakingShareSeconds =
+            now
+            .sub(_lastAccountingTimestampSec)
+            .mul(_totalStakingShares);
         _totalStakingShareSeconds = _totalStakingShareSeconds.add(newStakingShareSeconds);
         _lastAccountingTimestampSec = now;
 
         // User Accounting
-        UserAccount memory user = _userAccounts[msg.sender];
-        uint256 newUserStakingShareSeconds = now.sub(user.lastAccountingTimestampSec).mul(user.stakingShares);
-        user.stakingShareSeconds = user.stakingShareSeconds.add(newUserStakingShareSeconds);
-        user.lastAccountingTimestampSec = now;
-        _userAccounts[msg.sender] = user;
+        UserTotals memory totals = _userTotals[msg.sender];
+        uint256 newUserStakingShareSeconds =
+            now
+            .sub(totals.lastAccountingTimestampSec)
+            .mul(totals.stakingShares);
+        totals.stakingShareSeconds =
+            totals.stakingShareSeconds
+            .add(newUserStakingShareSeconds);
+        totals.lastAccountingTimestampSec = now;
+        _userTotals[msg.sender] = totals;
     }
 
-    // Unlock schedule & adding tokens
+    /**
+     * @return Total number of locked distribution tokens.
+     */
     function totalLocked() public view returns (uint256) {
         return _lockedPool.balance();
     }
 
+    /**
+     * @return Total number of unlocked distribution tokens.
+     */
     function totalUnlocked() public view returns (uint256) {
         return _unlockedPool.balance();
     }
 
+    /**
+     * @dev This funcion allows the contract owner to add more locked distribution tokens, along
+     *      with the associated "unlock schedule". These locked tokens immediately begin unlocking
+     *      linearly over the duraction of durationSec timeframe.
+     * @param amount Number of distribution tokens to lock. These are transferred from the caller.
+     * @param durationSec Length of time to linear unlock the tokens.
+     */
     function lockTokens(uint256 amount, uint256 durationSec) external onlyOwner {
         require(unlockSchedules.length < _maxUnlockSchedules);
 
@@ -240,6 +346,11 @@ contract ContVestTokenDist is IStaking, Ownable {
         emit TokensLocked(amount, durationSec, totalLocked());
     }
 
+    /**
+     * @dev Moves distribution tokens from the locked pool to the unlocked pool, according to the
+     *      previously defined unlock schedules. Publicly callable.
+     * @return Number of newly unlocked distribution tokens.
+     */
     function unlockTokens() public returns (uint256) {
         uint256 unlockedTokens = 0;
 
@@ -260,6 +371,13 @@ contract ContVestTokenDist is IStaking, Ownable {
         return unlockedTokens;
     }
 
+    /**
+     * @dev Returns the number of unlockable shares from a given schedule. The returned value
+     *      depends on the time since the last unlock. This function updates schedule accounting,
+     *      but does not actually transfer any tokens.
+     * @param s Index of the unlock schedule.
+     * @return The number of unlocked shares.
+     */
     function unlockScheduleShares(uint256 s) private returns (uint256) {
         UnlockSchedule storage schedule = unlockSchedules[s];
 
