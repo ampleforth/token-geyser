@@ -50,6 +50,7 @@ module.exports = {
               "rebase", "gons", "frg", "rng", "blockchain", "minlot",
               "redemptions", "rebased", "ganache", "ethclient",
               "bytecode", "Binance", "ampl", "unstake", "unstaked", "unstaking",
+              "ampls", "staker",
 
               // names
               "nithin", "naguib"

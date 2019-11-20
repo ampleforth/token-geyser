@@ -3,11 +3,13 @@ require('chai').use(require('chai-bignumber')(BigNumber)).should();
 
 const _require = require('app-root-path').require;
 const { toAmplDecimalsStr, invokeRebase } = _require('/test/helper');
+const BlockchainCaller = _require('/util/blockchain_caller');
+const chain = new BlockchainCaller(web3);
 
 const AmpleforthErc20 = artifacts.require('uFragments/UFragments.sol');
 const ContVestTokenDist = artifacts.require('ContVestTokenDist.sol');
 
-let ampl, dist, owner, anotherAccount, r;
+let ampl, dist, owner, anotherAccount, r, b;
 async function setupContractAndAccounts (accounts) {
   owner = accounts[0];
   anotherAccount = accounts[8];
@@ -24,7 +26,43 @@ contract('staking', function (accounts) {
     await setupContractAndAccounts(accounts);
   });
 
+  describe('getStakingToken', function () {
+    it('should return the staking token', async function () {
+      expect(await dist.getStakingToken.call()).to.eq(ampl.address);
+    });
+  });
+
+  describe('token', function () {
+    it('should return the staking token', async function () {
+      expect(await dist.token.call()).to.eq(ampl.address);
+    });
+  });
+
+  describe('supportsHistory', function () {
+    it('should return supportsHistory', async function () {
+      expect(await dist.supportsHistory.call()).to.be.false;
+    });
+  });
+
   describe('stake', function () {
+    describe('when token transfer has not been approved', function () {
+      it('should fail', async function () {
+        await ampl.approve(dist.address, toAmplDecimalsStr(0));
+        expect(await chain.isEthException(
+          dist.stake(toAmplDecimalsStr(100), [])
+        )).to.be.true;
+      });
+    });
+
+    describe('when the amount is 0', function () {
+      it('should fail', async function () {
+        await ampl.approve(dist.address, toAmplDecimalsStr(1000));
+        expect(await chain.isEthException(
+          dist.stake(toAmplDecimalsStr(0), [])
+        )).to.be.true;
+      });
+    });
+
     describe('when toatlStaked=0', function () {
       beforeEach(async function () {
         (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(0));
@@ -106,6 +144,31 @@ contract('staking', function (accounts) {
         (await dist.totalStakedFor.call(anotherAccount)).should.be.bignumber.eq(toAmplDecimalsStr(25));
         (await dist.totalStakedFor.call(owner)).should.be.bignumber.eq(toAmplDecimalsStr(150));
       });
+    });
+  });
+
+  describe('stakeFor', function () {
+    beforeEach(async function () {
+      (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(0));
+      await ampl.approve(dist.address, toAmplDecimalsStr(100));
+      b = await ampl.balanceOf(owner);
+      r = await dist.stakeFor(anotherAccount, toAmplDecimalsStr(100), []);
+    });
+    it('should deduct ampls for the staker', async function () {
+      const b_ = await ampl.balanceOf(owner);
+      (b.minus(b_)).should.be.bignumber.eq(toAmplDecimalsStr(100));
+    });
+    it('should updated the total staked on behalf of the beneficiary', async function () {
+      (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(100));
+      (await dist.totalStakedFor.call(anotherAccount)).should.be.bignumber.eq(toAmplDecimalsStr(100));
+      (await dist.totalStakedFor.call(owner)).should.be.bignumber.eq(toAmplDecimalsStr(0));
+    });
+    it('should log Staked', async function () {
+      const l = r.logs[r.logs.length - 1];
+      expect(l.event).to.eql('Staked');
+      expect(l.args.user).to.eql(anotherAccount);
+      (l.args.amount).should.be.bignumber.eq(toAmplDecimalsStr(100));
+      (l.args.total).should.be.bignumber.eq(toAmplDecimalsStr(100));
     });
   });
 });

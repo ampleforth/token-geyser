@@ -28,7 +28,22 @@ contract('LockedPool', function (accounts) {
     await setupContractAndAccounts(accounts);
   });
 
+  describe('getDistributionToken', function () {
+    it('should return the staking token', async function () {
+      expect(await dist.getDistributionToken.call()).to.eq(ampl.address);
+    });
+  });
+
   describe('lockTokens', function () {
+    describe('when not approved', function () {
+      it('should fail', async function () {
+        const d = await ContVestTokenDist.new(ampl.address, ampl.address, 5);
+        expect(await chain.isEthException(
+          d.lockTokens(toAmplDecimalsStr(10), ONE_YEAR)
+        )).to.be.true;
+      });
+    });
+
     describe('when number of unlock schedules exceeds the maxUnlockSchedules', function () {
       it('should fail', async function () {
         const d = await ContVestTokenDist.new(ampl.address, ampl.address, 5);

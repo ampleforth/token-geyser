@@ -91,9 +91,6 @@ contract ContVestTokenDist is IStaking, Ownable {
         _unlockedPool = new TokenPool(distributionToken);
         _lockedPool = new TokenPool(distributionToken);
 
-        assert(_stakingPool.owner() == address(this));
-        assert(_unlockedPool.owner() == address(this));
-        assert(_lockedPool.owner() == address(this));
 
         _maxUnlockSchedules = maxUnlockSchedules;
     }
@@ -119,7 +116,7 @@ contract ContVestTokenDist is IStaking, Ownable {
      * @param data Not used.
      */
     function stake(uint256 amount, bytes data) external {
-        _stakeFor(msg.sender, amount);
+        _stakeFor(msg.sender, msg.sender, amount);
     }
 
     /**
@@ -129,15 +126,18 @@ contract ContVestTokenDist is IStaking, Ownable {
      * @param data Not used.
      */
     function stakeFor(address user, uint256 amount, bytes data) external {
-        _stakeFor(user, amount);
+        _stakeFor(msg.sender, user, amount);
     }
 
     /**
      * @dev Private implementation of staking methods.
-     * @param user User address who gains credit for this stake operation.
+     * @param staker User address who deposits tokens to stake.
+     * @param beneficiary User address who gains credit for this stake operation.
      * @param amount Number of deposit tokens to stake.
      */
-    function _stakeFor(address user, uint256 amount) private {
+    function _stakeFor(address staker, address beneficiary, uint256 amount) private {
+        require(amount > 0);
+
         updateAccounting();
 
         // 1. User Accounting
@@ -146,12 +146,12 @@ contract ContVestTokenDist is IStaking, Ownable {
             ? _totalStakingShares.mul(amount).div(totalStaked())
             : amount;
 
-        UserTotals storage totals = _userTotals[user];
+        UserTotals storage totals = _userTotals[beneficiary];
         totals.stakingShares = totals.stakingShares.add(mintedStakingShares);
         totals.lastAccountingTimestampSec = now;
 
         Stake memory newStake = Stake(mintedStakingShares, now);
-        _userStakes[user].push(newStake);
+        _userStakes[beneficiary].push(newStake);
 
         // 2. Global Accounting
         _totalStakingShares = _totalStakingShares.add(mintedStakingShares);
@@ -159,9 +159,9 @@ contract ContVestTokenDist is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        require(_stakingPool.getToken().transferFrom(user, address(_stakingPool), amount));
+        require(_stakingPool.getToken().transferFrom(staker, address(_stakingPool), amount));
 
-        emit Staked(user, amount, totalStakedFor(user), "");
+        emit Staked(beneficiary, amount, totalStakedFor(beneficiary), "");
     }
 
     /**
@@ -365,8 +365,10 @@ contract ContVestTokenDist is IStaking, Ownable {
             _totalLockedShares = _totalLockedShares.sub(unlockedShares);
         }
 
-        require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
-        emit TokensUnlocked(unlockedTokens, totalLocked());
+        if (unlockedTokens > 0) {
+          require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
+          emit TokensUnlocked(unlockedTokens, totalLocked());
+        }
 
         return unlockedTokens;
     }

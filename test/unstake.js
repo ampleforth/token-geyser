@@ -33,6 +33,15 @@ contract('unstaking', function (accounts) {
   });
 
   describe('unstake', function () {
+    describe('when amount is 0', function () {
+      it('should fail', async function () {
+        await dist.stake(toAmplDecimalsStr(50), [], { from: anotherAccount });
+        expect(await chain.isEthException(
+          dist.unstake(toAmplDecimalsStr(0), [], { from: anotherAccount })
+        )).to.be.true;
+      });
+    });
+
     describe('when rebase decreases supply', function () {
       beforeEach(async function () {
         await dist.stake(toAmplDecimalsStr(50), [], { from: anotherAccount });
@@ -75,14 +84,14 @@ contract('unstaking', function (accounts) {
         await checkAproxBal((await ampl.balanceOf.call(anotherAccount)).sub(_b), 90);
       });
       it('should log Unstaked', async function () {
-        const l = r.logs[1];
+        const l = r.logs[r.logs.length-2];
         expect(l.event).to.eql('Unstaked');
         expect(l.args.user).to.eql(anotherAccount);
         (l.args.amount).should.be.bignumber.eq(toAmplDecimalsStr(30));
         (l.args.total).should.be.bignumber.eq(toAmplDecimalsStr(20));
       });
       it('should log TokensClaimed', async function () {
-        const l = r.logs[2];
+        const l = r.logs[r.logs.length-1];
         expect(l.event).to.eql('TokensClaimed');
         expect(l.args.user).to.eql(anotherAccount);
         await checkAproxBal(l.args.amount, 60);
