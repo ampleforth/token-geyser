@@ -57,6 +57,7 @@ contract ContVestTokenDist is IStaking, Ownable {
     }
 
     // Caches aggregated values from the User->Stake[] map to save computation.
+    // If lastAccountingTimestampSec is 0, there's no entry for that user.
     struct UserTotals {
         uint256 stakingShares;
         uint256 stakingShareSeconds;
@@ -141,7 +142,6 @@ contract ContVestTokenDist is IStaking, Ownable {
         updateAccounting();
 
         // 1. User Accounting
-        // TODO: If we start with 1 share = 1 token, will we hit rounding errors in the future?
         uint256 mintedStakingShares = (totalStaked() > 0)
             ? _totalStakingShares.mul(amount).div(totalStaked())
             : amount;
@@ -279,7 +279,6 @@ contract ContVestTokenDist is IStaking, Ownable {
      *      Global state and state for the caller are updated.
      */
     function updateAccounting() public {
-        // unlock tokens
         unlockTokens();
 
         // Global accounting
@@ -327,8 +326,6 @@ contract ContVestTokenDist is IStaking, Ownable {
     function lockTokens(uint256 amount, uint256 durationSec) external onlyOwner {
         require(unlockSchedules.length < _maxUnlockSchedules);
 
-        // TODO: If we start with 1 share = 1 token,
-        // will we hit rounding errors in the future
         uint256 mintedLockedShares = (totalLocked() > 0)
             ? _totalLockedShares.mul(amount).div(totalLocked())
             : amount;
