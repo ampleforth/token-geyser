@@ -41,10 +41,10 @@ contract ContVestTokenDist is IStaking, Ownable {
     //
     // Global accounting state
     //
+    uint256 public totalLockedShares = 0;
     uint256 private _totalStakingShares = 0;
     uint256 private _totalStakingShareSeconds = 0;
     uint256 private _lastAccountingTimestampSec = 0;
-    uint256 private _totalLockedShares = 0;
     uint256 private _maxUnlockSchedules = 0;
 
     //
@@ -171,6 +171,24 @@ contract ContVestTokenDist is IStaking, Ownable {
      * @param data Not used.
      */
     function unstake(uint256 amount, bytes data) external {
+        _unstake(amount);
+    }
+
+    /**
+     * @param amount Number of deposit tokens to unstake / withdraw.
+     * @return The total number of distribution tokens that would be rewarded.
+     */
+    function unstakeQuery(uint256 amount) public view returns (uint256) {
+        return _unstake(amount);
+    }
+
+    /**
+     * @dev Unstakes a certain amount of previously deposited tokens. User also receives their
+     * alotted number of distribution tokens.
+     * @param amount Number of deposit tokens to unstake / withdraw.
+     * @return The total number of distribution tokens rewarded.
+     */
+    function _unstake(uint256 amount) private returns (uint256) {
         updateAccounting();
 
         // checks
@@ -228,18 +246,8 @@ contract ContVestTokenDist is IStaking, Ownable {
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), "");
         emit TokensClaimed(msg.sender, rewardAmount);
-    }
 
-    /**
-     * @param addr The user to look up staking rewards for.
-     * @return The number of distribution tokens addr would currently receive for their stake.
-     */
-    function totalRewardsFor(address addr) public view returns (uint256) {
-        return _totalStakingShareSeconds > 0
-            ? totalUnlocked()
-            .mul(_userTotals[addr].stakingShareSeconds)
-            .div(_totalStakingShareSeconds)
-            : 0;
+        return rewardAmount;
     }
 
     /**
@@ -277,8 +285,16 @@ contract ContVestTokenDist is IStaking, Ownable {
     /**
      * @dev A globally callable function to update the accounting state of the system.
      *      Global state and state for the caller are updated.
+     * @return [0] balance of the locked pool
+     * @return [1] balance of the unlocked pool
+     * @return [2] caller's staking share seconds
+     * @return [3] global staking share seconds
+     * @return [4] Rewards caller has accumulated till now
+     * @return [5] block timestamp
      */
-    function updateAccounting() public {
+    function updateAccounting() public returns (
+      uint256, uint256, uint256, uint256, uint256, uint256) {
+
         unlockTokens();
 
         // Global accounting
@@ -300,6 +316,19 @@ contract ContVestTokenDist is IStaking, Ownable {
             .add(newUserStakingShareSeconds);
         totals.lastAccountingTimestampSec = now;
         _userTotals[msg.sender] = totals;
+
+        uint256 totalUserRewards = (_totalStakingShareSeconds > 0)
+            ? totalUnlocked().mul(totals.stakingShareSeconds).div(_totalStakingShareSeconds)
+            : 0;
+
+        return (
+            totalLocked(),
+            totalUnlocked(),
+            totals.stakingShareSeconds,
+            _totalStakingShareSeconds,
+            totalUserRewards,
+            now
+        );
     }
 
     /**
@@ -317,6 +346,13 @@ contract ContVestTokenDist is IStaking, Ownable {
     }
 
     /**
+     * @return Number of unlock schedules.
+     */
+    function unlockScheduleCount() public view returns (uint256) {
+        return unlockSchedules.length;
+    }
+
+    /**
      * @dev This funcion allows the contract owner to add more locked distribution tokens, along
      *      with the associated "unlock schedule". These locked tokens immediately begin unlocking
      *      linearly over the duraction of durationSec timeframe.
@@ -327,7 +363,7 @@ contract ContVestTokenDist is IStaking, Ownable {
         require(unlockSchedules.length < _maxUnlockSchedules);
 
         uint256 mintedLockedShares = (totalLocked() > 0)
-            ? _totalLockedShares.mul(amount).div(totalLocked())
+            ? totalLockedShares.mul(amount).div(totalLocked())
             : amount;
 
         UnlockSchedule memory schedule;
@@ -337,7 +373,7 @@ contract ContVestTokenDist is IStaking, Ownable {
         schedule.durationSec = durationSec;
         unlockSchedules.push(schedule);
 
-        _totalLockedShares = _totalLockedShares.add(mintedLockedShares);
+        totalLockedShares = totalLockedShares.add(mintedLockedShares);
 
         require(_lockedPool.getToken().transferFrom(msg.sender, address(_lockedPool), amount));
         emit TokensLocked(amount, durationSec, totalLocked());
@@ -351,15 +387,15 @@ contract ContVestTokenDist is IStaking, Ownable {
     function unlockTokens() public returns (uint256) {
         uint256 unlockedTokens = 0;
 
-        if(_totalLockedShares == 0) {
+        if(totalLockedShares == 0) {
             unlockedTokens = totalLocked();
         } else {
             uint256 unlockedShares = 0;
             for(uint256 s = 0; s < unlockSchedules.length; s++) {
                 unlockedShares += unlockScheduleShares(s);
             }
-            unlockedTokens = unlockedShares.mul(totalLocked()).div(_totalLockedShares);
-            _totalLockedShares = _totalLockedShares.sub(unlockedShares);
+            unlockedTokens = unlockedShares.mul(totalLocked()).div(totalLockedShares);
+            totalLockedShares = totalLockedShares.sub(unlockedShares);
         }
 
         if (unlockedTokens > 0) {
