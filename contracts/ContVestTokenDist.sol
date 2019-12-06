@@ -399,8 +399,8 @@ contract ContVestTokenDist is IStaking, Ownable {
         }
 
         if (unlockedTokens > 0) {
-          require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
-          emit TokensUnlocked(unlockedTokens, totalLocked());
+            require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
+            emit TokensUnlocked(unlockedTokens, totalLocked());
         }
 
         return unlockedTokens;
