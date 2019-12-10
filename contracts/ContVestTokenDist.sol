@@ -293,7 +293,7 @@ contract ContVestTokenDist is IStaking, Ownable {
      * @return [5] block timestamp
      */
     function updateAccounting() public returns (
-      uint256, uint256, uint256, uint256, uint256, uint256) {
+        uint256, uint256, uint256, uint256, uint256, uint256) {
 
         unlockTokens();
 
