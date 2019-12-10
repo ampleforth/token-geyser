@@ -53,8 +53,8 @@ BlockchainCaller.prototype.getBlockGasLimit = async function () {
 };
 
 BlockchainCaller.prototype.currentTime = async function () {
-  const block = await this.sendRawToBlockchain('eth_getBlockByNumber', ['latest', false]);
-  return parseInt(block.result.timestamp);
+  const block = await this.web3.eth.getBlock('latest');
+  return parseInt(block.timestamp);
 };
 
 BlockchainCaller.prototype.getTransactionMetrics = async function (hash) {

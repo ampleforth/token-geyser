@@ -306,9 +306,10 @@ contract('LockedPool', function (accounts) {
   });
 
   describe('updateAccounting', function () {
-    let _r;
+    let _r, _t;
     beforeEach(async function () {
       _r = await dist.updateAccounting.call({ from: owner });
+      _t = await chain.currentTime.call();
       await ampl.approve(dist.address, toAmplDecimalsStr(300));
       await dist.stake(toAmplDecimalsStr(100), []);
       await dist.lockTokens(toAmplDecimalsStr(100), ONE_YEAR);
@@ -320,30 +321,30 @@ contract('LockedPool', function (accounts) {
     describe('when user history does exist', async function () {
       it('should return the system state', async function () {
         r = await dist.updateAccounting.call({ from: owner });
+        const t = await chain.currentTime.call();
         await checkAproxBal(r[0], 130);
         await checkAproxBal(r[1], 70);
-        const timeElapsed = (ONE_YEAR / 2) + (ONE_YEAR / 10);
+        const timeElapsed = t - _t;
         const tokenSecs = (timeElapsed) * 100;
         await checkAproxBal(r[2], tokenSecs);
         await checkAproxBal(r[3], tokenSecs);
         await checkAproxBal(r[4], 70);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.gte(timeElapsed - 1);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.lte(timeElapsed + 1);
+        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.eq(timeElapsed);
       });
     });
 
     describe('when user history does not exist', async function () {
       it('should return the system state', async function () {
         r = await dist.updateAccounting.call({ from: '0x0000000000000000000000000000000000000000' });
+        const t = await chain.currentTime.call();
         await checkAproxBal(r[0], 130);
         await checkAproxBal(r[1], 70);
-        const timeElapsed = (ONE_YEAR / 2) + (ONE_YEAR / 10);
+        const timeElapsed = t - _t;
         const tokenSecs = (timeElapsed) * 100;
         await checkAproxBal(r[2], 0);
         await checkAproxBal(r[3], tokenSecs);
         await checkAproxBal(r[4], 0);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.gte(timeElapsed - 1);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.lte(timeElapsed + 1);
+        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.eq(timeElapsed);
       });
     });
   });
