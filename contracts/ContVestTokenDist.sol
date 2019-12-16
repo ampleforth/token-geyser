@@ -39,6 +39,13 @@ contract ContVestTokenDist is IStaking, Ownable {
     TokenPool private _lockedPool;
 
     //
+    // Time-bonus params
+    //
+    uint256 public constant BONUS_DECIMALS = 2;
+    uint256 public startBonus = 0;
+    uint256 public bonusPeriodSec = 0;
+
+    //
     // Global accounting state
     //
     uint256 public totalLockedShares = 0;
@@ -86,13 +93,20 @@ contract ContVestTokenDist is IStaking, Ownable {
      * @param stakingToken The token users deposit as stake.
      * @param distributionToken The token users receive as they unstake.
      * @param maxUnlockSchedules Max number of unlock stages, to guard against hitting gas limit.
+     * @param startBonus_ Starting time bonus, BONUS_DECIMALS fixed point.
+     *                    e.g. 25% means user gets 25% of max distribution tokens.
+     * @param bonusPeriodSec_ Length of time for bonus to increase linearly to max.
      */
-    constructor(IERC20 stakingToken, IERC20 distributionToken, uint256 maxUnlockSchedules) public {
+    constructor(IERC20 stakingToken, IERC20 distributionToken, uint256 maxUnlockSchedules,
+                uint256 startBonus_, uint256 bonusPeriodSec_) public {
+        // The start bonus must be some fraction of the max. (i.e. <= 100%)
+        require(startBonus_ <= 10**BONUS_DECIMALS);
+
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
         _lockedPool = new TokenPool(distributionToken);
-
-
+        startBonus = startBonus_;
+        bonusPeriodSec = bonusPeriodSec_;
         _maxUnlockSchedules = maxUnlockSchedules;
     }
 
@@ -201,22 +215,26 @@ contract ContVestTokenDist is IStaking, Ownable {
         Stake[] storage accountStakes = _userStakes[msg.sender];
         uint256 stakingSharesToBurn = _totalStakingShares.mul(amount).div(totalStaked());
 
-        // User wants to burn the fewest stakingShareSeconds for their AMPLs, so redeem from most
-        // recent stakes and go backwards in time.
+        // Redeem from most recent stake and go backwards in time.
         uint256 stakingShareSecondsToBurn = 0;
         uint256 sharesLeftToBurn = stakingSharesToBurn;
+        uint256 rewardAmount = 0;
         while (sharesLeftToBurn > 0) {
             Stake memory lastStake = accountStakes[accountStakes.length - 1];
+            uint256 stakeTimeSec = now.sub(lastStake.timestampSec);
+            uint256 newStakingShareSecondsToBurn = 0;
             if (lastStake.stakingShares <= sharesLeftToBurn) {
                 // fully redeem a past stake
-                stakingShareSecondsToBurn = stakingShareSecondsToBurn
-                    .add(lastStake.stakingShares.mul(now.sub(lastStake.timestampSec)));
-                accountStakes.length--;
+                newStakingShareSecondsToBurn = lastStake.stakingShares.mul(stakeTimeSec);
+                rewardAmount = computeNewReward(rewardAmount, newStakingShareSecondsToBurn, stakeTimeSec);
+                stakingShareSecondsToBurn = stakingShareSecondsToBurn.add(newStakingShareSecondsToBurn);
                 sharesLeftToBurn = sharesLeftToBurn.sub(lastStake.stakingShares);
+                accountStakes.length--;
             } else {
                 // partially redeem a past stake
-                stakingShareSecondsToBurn = stakingShareSecondsToBurn
-                    .add(sharesLeftToBurn.mul(now.sub(lastStake.timestampSec)));
+                newStakingShareSecondsToBurn = sharesLeftToBurn.mul(stakeTimeSec);
+                rewardAmount = computeNewReward(rewardAmount, newStakingShareSecondsToBurn, stakeTimeSec);
+                stakingShareSecondsToBurn = stakingShareSecondsToBurn.add(newStakingShareSecondsToBurn);
                 lastStake.stakingShares = lastStake.stakingShares.sub(sharesLeftToBurn);
                 sharesLeftToBurn = 0;
                 break;
@@ -224,15 +242,9 @@ contract ContVestTokenDist is IStaking, Ownable {
         }
         totals.stakingShareSeconds = totals.stakingShareSeconds.sub(stakingShareSecondsToBurn);
         totals.stakingShares = totals.stakingShares.sub(stakingSharesToBurn);
-        totals.lastAccountingTimestampSec = now;
+        // Already set in updateAccounting
+        // totals.lastAccountingTimestampSec = now;
         _userTotals[msg.sender] = totals;
-
-        // Calculate the reward amount as a share of user's stakingShareSecondsToBurn to
-        // _totalStakingShareSecond.
-        uint256 rewardAmount =
-            totalUnlocked()
-            .mul(stakingShareSecondsToBurn)
-            .div(_totalStakingShareSeconds);
 
         // 2. Global Accounting
         _totalStakingShareSeconds = _totalStakingShareSeconds.sub(stakingShareSecondsToBurn);
@@ -248,6 +260,41 @@ contract ContVestTokenDist is IStaking, Ownable {
         emit TokensClaimed(msg.sender, rewardAmount);
 
         return rewardAmount;
+    }
+
+    /**
+     * @dev Applies an additional time-bonus to a distribution amount. This is necessary to
+     *      encourage long-term deposits instead of constant unstake/restakes.
+     *      The bonus-multiplier is the result of a linear function that starts at startBonus and
+     *      ends at 100% over bonusPeriodSec, then stays at 100% thereafter.
+     * @param currentRewardTokens The current number of distribution tokens already alotted for this
+     *                            unstake op. Any bonuses are already applied.
+     * @param stakingShareSeconds The stakingShare-seconds that are being burned for new
+     *                            distribution tokens.
+     * @param stakeTimeSec Length of time for which the tokens were staked. Needed to calculate
+     *                     the time-bonus.
+     * @return Updated amount of distribution tokens to award, with any bonus included on the
+     *         newly added tokens.
+     */
+    function computeNewReward(uint256 currentRewardTokens,
+                              uint256 stakingShareSeconds,
+                              uint256 stakeTimeSec) private view returns (uint256) {
+        uint256 newRewardTokens =
+            totalUnlocked()
+            .mul(stakingShareSeconds)
+            .div(_totalStakingShareSeconds);
+
+        if (stakeTimeSec >= bonusPeriodSec) {
+            return currentRewardTokens.add(newRewardTokens);
+        }
+
+        uint256 oneHundredPct = 10**BONUS_DECIMALS;
+        uint256 bonusedReward =
+            startBonus
+            .add(oneHundredPct.sub(startBonus).mul(stakeTimeSec).div(bonusPeriodSec))
+            .mul(newRewardTokens)
+            .div(10**BONUS_DECIMALS);
+        return currentRewardTokens.add(bonusedReward);
     }
 
     /**
@@ -289,7 +336,7 @@ contract ContVestTokenDist is IStaking, Ownable {
      * @return [1] balance of the unlocked pool
      * @return [2] caller's staking share seconds
      * @return [3] global staking share seconds
-     * @return [4] Rewards caller has accumulated till now
+     * @return [4] Rewards caller has accumulated, optimistically assumes max time-bonus.
      * @return [5] block timestamp
      */
     function updateAccounting() public returns (

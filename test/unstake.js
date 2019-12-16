@@ -20,7 +20,9 @@ async function setupContractAndAccounts (accounts) {
   await ampl.initialize(owner);
   await ampl.setMonetaryPolicy(owner);
 
-  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10);
+  const startBonus = 50; // 50%
+  const bonusPeriod = 86400; // 1 Day
+  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
 
   await ampl.transfer(anotherAccount, toAmplDecimalsStr(1000));
   await ampl.approve(dist.address, toAmplDecimalsStr(1000), { from: anotherAccount });
@@ -69,7 +71,7 @@ contract('unstaking', function (accounts) {
       // 100 ampls locked for 1 year, user stakes 50 ampls for 1 year
       // user is eligible for 100% of the reward,
       // unstakes 30 ampls, gets 60% of the reward (60 ampl)
-      // user's final balance is 90 ampl, (20 remians staked), eligible rewards (40 ampl)
+      // user's final balance is 90 ampl, (20 remains staked), eligible rewards (40 ampl)
       beforeEach(async function () {
         await dist.lockTokens(toAmplDecimalsStr(100), ONE_YEAR);
         await dist.stake(toAmplDecimalsStr(50), [], { from: anotherAccount });
@@ -99,6 +101,45 @@ contract('unstaking', function (accounts) {
         expect(l.event).to.eql('TokensClaimed');
         expect(l.args.user).to.eql(anotherAccount);
         await checkAproxBal(l.args.amount, 60);
+      });
+    });
+
+    describe('when single user unstake early with early bonus', function () {
+      // Start bonus = 50%, Bonus Period = 1 Day.
+      // 100 ampls locked for 1 hour, so all will be unlocked by test-time.
+      // user stakes 50 ampls for 12 hours, half the period.
+      // user is eligible for 75% of the max reward,
+      // unstakes 25 ampls, gets .5 * .75 * 100 ampls
+      // user's final balance is 62.5 ampl, (25 remains staked), eligible rewards (37.5 ampl)
+      beforeEach(async function () {
+        await dist.lockTokens(toAmplDecimalsStr(100), 1 * 60 * 60);
+        await dist.stake(toAmplDecimalsStr(50), [], { from: anotherAccount });
+        await chain.waitForSomeTime(12 * 60 * 60);
+        await dist.updateAccounting({ from: anotherAccount });
+        await checkAproxBal(totalRewardsFor(anotherAccount), 100);
+        _b = await ampl.balanceOf.call(anotherAccount);
+        r = await dist.unstake(toAmplDecimalsStr(25), [], { from: anotherAccount });
+      });
+      it('should update the total staked and rewards', async function () {
+        (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(25));
+        (await dist.totalStakedFor.call(anotherAccount)).should.be.bignumber.eq(toAmplDecimalsStr(25));
+        await checkAproxBal(totalRewardsFor(anotherAccount), 62.5); // (.5 * .75 * 100) + 25
+      });
+      it('should transfer back staked tokens + rewards', async function () {
+        await checkAproxBal((await ampl.balanceOf.call(anotherAccount)).sub(_b), 62.5);
+      });
+      it('should log Unstaked', async function () {
+        const l = r.logs[r.logs.length - 2];
+        expect(l.event).to.eql('Unstaked');
+        expect(l.args.user).to.eql(anotherAccount);
+        (l.args.amount).should.be.bignumber.eq(toAmplDecimalsStr(25));
+        (l.args.total).should.be.bignumber.eq(toAmplDecimalsStr(25));
+      });
+      it('should log TokensClaimed', async function () {
+        const l = r.logs[r.logs.length - 1];
+        expect(l.event).to.eql('TokensClaimed');
+        expect(l.args.user).to.eql(anotherAccount);
+        await checkAproxBal(l.args.amount, 37.5); // .5 * .75 * 100
       });
     });
 

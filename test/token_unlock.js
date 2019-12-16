@@ -10,6 +10,8 @@ const AmpleforthErc20 = artifacts.require('uFragments/UFragments.sol');
 const ContVestTokenDist = artifacts.require('ContVestTokenDist.sol');
 
 const ONE_YEAR = 1 * 365 * 24 * 3600;
+const START_BONUS = 50;
+const BONUS_PERIOD = 86400;
 
 let ampl, dist, owner, anotherAccount, r;
 async function setupContractAndAccounts (accounts) {
@@ -20,7 +22,7 @@ async function setupContractAndAccounts (accounts) {
   await ampl.initialize(owner);
   await ampl.setMonetaryPolicy(owner);
 
-  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10);
+  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10, START_BONUS, BONUS_PERIOD);
 }
 
 async function checkAvailableToUnlock (dist, v) {
@@ -43,7 +45,7 @@ contract('LockedPool', function (accounts) {
   describe('lockTokens', function () {
     describe('when not approved', function () {
       it('should fail', async function () {
-        const d = await ContVestTokenDist.new(ampl.address, ampl.address, 5);
+        const d = await ContVestTokenDist.new(ampl.address, ampl.address, 5, START_BONUS, BONUS_PERIOD);
         expect(await chain.isEthException(
           d.lockTokens(toAmplDecimalsStr(10), ONE_YEAR)
         )).to.be.true;
@@ -52,7 +54,7 @@ contract('LockedPool', function (accounts) {
 
     describe('when number of unlock schedules exceeds the maxUnlockSchedules', function () {
       it('should fail', async function () {
-        const d = await ContVestTokenDist.new(ampl.address, ampl.address, 5);
+        const d = await ContVestTokenDist.new(ampl.address, ampl.address, 5, START_BONUS, BONUS_PERIOD);
         await ampl.approve(d.address, toAmplDecimalsStr(100));
         await d.lockTokens(toAmplDecimalsStr(10), ONE_YEAR);
         await d.lockTokens(toAmplDecimalsStr(10), ONE_YEAR);

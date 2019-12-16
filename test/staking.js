@@ -18,12 +18,22 @@ async function setupContractAndAccounts (accounts) {
   await ampl.initialize(owner);
   await ampl.setMonetaryPolicy(owner);
 
-  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10);
+  const startBonus = 50;
+  const bonusPeriod = 86400;
+  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
 }
 
 contract('staking', function (accounts) {
   beforeEach('setup contracts', async function () {
     await setupContractAndAccounts(accounts);
+  });
+
+  describe('when start bonus too high', function () {
+    it('should fail to construct', async function () {
+      expect(await chain.isEthException(
+        ContVestTokenDist.new(ampl.address, ampl.address, 10, 101, 86400)
+      )).to.be.true;
+    });
   });
 
   describe('getStakingToken', function () {
@@ -63,7 +73,7 @@ contract('staking', function (accounts) {
       });
     });
 
-    describe('when toatlStaked=0', function () {
+    describe('when totalStaked=0', function () {
       beforeEach(async function () {
         (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(0));
         await ampl.approve(dist.address, toAmplDecimalsStr(100));
