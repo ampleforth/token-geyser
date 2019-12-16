@@ -17,8 +17,8 @@ async function invokeRebase (ampl, perc) {
   await ampl.rebase(1, s.times(new BigNumber(perc)).dividedBy(new BigNumber(100)));
 }
 
-async function checkAproxBal (x, y) {
-  const delta = new BigNumber(toAmplDecimalsStr(1)).dividedBy(new BigNumber(5));
+async function checkAproxBal (x, y, tolerance = 5) {
+  const delta = new BigNumber(toAmplDecimalsStr(1)).dividedBy(new BigNumber(tolerance));
   (await x).should.be.bignumber.gt(toAmplDecimals(y).minus(delta));
   (await x).should.be.bignumber.lt(toAmplDecimals(y).plus(delta));
 }

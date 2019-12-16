@@ -327,9 +327,10 @@ contract('LockedPool', function (accounts) {
         await checkAproxBal(r[0], 130);
         await checkAproxBal(r[1], 70);
         const timeElapsed = t - _t;
-        const tokenSecs = (timeElapsed) * 100;
-        await checkAproxBal(r[2], tokenSecs);
-        await checkAproxBal(r[3], tokenSecs);
+        r[2].div(100e9).should.be.bignumber.gte(timeElapsed - 1);
+        r[2].div(100e9).should.be.bignumber.lte(timeElapsed + 1);
+        r[3].div(100e9).should.be.bignumber.gte(timeElapsed - 1);
+        r[3].div(100e9).should.be.bignumber.lte(timeElapsed + 1);
         await checkAproxBal(r[4], 70);
         (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.eq(timeElapsed);
       });
@@ -342,9 +343,9 @@ contract('LockedPool', function (accounts) {
         await checkAproxBal(r[0], 130);
         await checkAproxBal(r[1], 70);
         const timeElapsed = t - _t;
-        const tokenSecs = (timeElapsed) * 100;
         await checkAproxBal(r[2], 0);
-        await checkAproxBal(r[3], tokenSecs);
+        r[3].div(100e9).should.be.bignumber.gte(timeElapsed - 1);
+        r[3].div(100e9).should.be.bignumber.lte(timeElapsed + 1);
         await checkAproxBal(r[4], 0);
         (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.eq(timeElapsed);
       });
