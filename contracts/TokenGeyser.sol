@@ -8,7 +8,7 @@ import "./IStaking.sol";
 import "./TokenPool.sol";
 
 /**
- * @title Continuous Vesting Token Distribution
+ * @title Token Geyser
  * @dev A smart-contract based mechanism to distribute tokens over time, inspired loosely by
  *      Compound and Uniswap.
  *
@@ -25,7 +25,7 @@ import "./TokenPool.sol";
  *      More background and motivation available at:
  *      https://github.com/ampleforth/RFCs/blob/master/RFCs/rfc-1.md
  */
-contract ContVestTokenDist is IStaking, Ownable {
+contract TokenGeyser is IStaking, Ownable {
     using SafeMath for uint256;
 
     event Staked(address indexed user, uint256 amount, uint256 total, bytes data);

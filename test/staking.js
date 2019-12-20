@@ -7,7 +7,7 @@ const BlockchainCaller = _require('/util/blockchain_caller');
 const chain = new BlockchainCaller(web3);
 
 const AmpleforthErc20 = artifacts.require('uFragments/UFragments.sol');
-const ContVestTokenDist = artifacts.require('ContVestTokenDist.sol');
+const TokenGeyser = artifacts.require('TokenGeyser.sol');
 
 let ampl, dist, owner, anotherAccount, r, b;
 async function setupContractAndAccounts (accounts) {
@@ -20,7 +20,7 @@ async function setupContractAndAccounts (accounts) {
 
   const startBonus = 50;
   const bonusPeriod = 86400;
-  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
+  dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
 }
 
 contract('staking', function (accounts) {
@@ -31,7 +31,7 @@ contract('staking', function (accounts) {
   describe('when start bonus too high', function () {
     it('should fail to construct', async function () {
       expect(await chain.isEthException(
-        ContVestTokenDist.new(ampl.address, ampl.address, 10, 101, 86400)
+        TokenGeyser.new(ampl.address, ampl.address, 10, 101, 86400)
       )).to.be.true;
     });
   });

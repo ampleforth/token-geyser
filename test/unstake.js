@@ -7,7 +7,7 @@ const BlockchainCaller = _require('/util/blockchain_caller');
 const chain = new BlockchainCaller(web3);
 
 const AmpleforthErc20 = artifacts.require('uFragments/UFragments.sol');
-const ContVestTokenDist = artifacts.require('ContVestTokenDist.sol');
+const TokenGeyser = artifacts.require('TokenGeyser.sol');
 
 const ONE_YEAR = 1 * 365 * 24 * 3600;
 
@@ -22,7 +22,7 @@ async function setupContractAndAccounts (accounts) {
 
   const startBonus = 50; // 50%
   const bonusPeriod = 86400; // 1 Day
-  dist = await ContVestTokenDist.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
+  dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
 
   await ampl.transfer(anotherAccount, toAmplDecimalsStr(1000));
   await ampl.approve(dist.address, toAmplDecimalsStr(1000), { from: anotherAccount });
