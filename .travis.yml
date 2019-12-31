@@ -8,7 +8,7 @@ cache:
     - node_modules
     - $(npm config get prefix)/bin/ganache-cli
 before_install:
-  - npm install -g npx
+  - npx -v
 script:
   - ./scripts/setup-ci.sh
   - npm run lint
