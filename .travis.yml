@@ -8,7 +8,8 @@ cache:
     - node_modules
     - $(npm config get prefix)/bin/ganache-cli
 before_install:
-  - npx -v
+  - npm install -g npm@6.4.1 # Locking npm to 6.4.1
+  - npm install -g npx
 script:
   - ./scripts/setup-ci.sh
   - npm run lint

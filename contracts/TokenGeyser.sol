@@ -277,8 +277,9 @@ contract TokenGeyser is IStaking, Ownable {
      *         newly added tokens.
      */
     function computeNewReward(uint256 currentRewardTokens,
-                              uint256 stakingShareSeconds,
-                              uint256 stakeTimeSec) private view returns (uint256) {
+                                uint256 stakingShareSeconds,
+                                uint256 stakeTimeSec) private view returns (uint256) {
+
         uint256 newRewardTokens =
             totalUnlocked()
             .mul(stakingShareSeconds)
