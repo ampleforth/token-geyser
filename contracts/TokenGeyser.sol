@@ -114,15 +114,15 @@ contract TokenGeyser is IStaking, Ownable {
      * @return The token users deposit as stake.
      */
     function getStakingToken() public view returns (IERC20) {
-        return _stakingPool.getToken();
+        return _stakingPool.token();
     }
 
     /**
      * @return The token users receive as they unstake.
      */
     function getDistributionToken() public view returns (IERC20) {
-        assert(_unlockedPool.getToken() == _lockedPool.getToken());
-        return _unlockedPool.getToken();
+        assert(_unlockedPool.token() == _lockedPool.token());
+        return _unlockedPool.token();
     }
 
     /**
@@ -152,6 +152,7 @@ contract TokenGeyser is IStaking, Ownable {
      */
     function _stakeFor(address staker, address beneficiary, uint256 amount) private {
         require(amount > 0);
+        require(beneficiary != address(0));
 
         updateAccounting();
 
@@ -173,7 +174,7 @@ contract TokenGeyser is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        require(_stakingPool.getToken().transferFrom(staker, address(_stakingPool), amount));
+        require(_stakingPool.token().transferFrom(staker, address(_stakingPool), amount));
 
         emit Staked(beneficiary, amount, totalStakedFor(beneficiary), "");
     }
@@ -237,7 +238,6 @@ contract TokenGeyser is IStaking, Ownable {
                 stakingShareSecondsToBurn = stakingShareSecondsToBurn.add(newStakingShareSecondsToBurn);
                 lastStake.stakingShares = lastStake.stakingShares.sub(sharesLeftToBurn);
                 sharesLeftToBurn = 0;
-                break;
             }
         }
         totals.stakingShareSeconds = totals.stakingShareSeconds.sub(stakingShareSecondsToBurn);
@@ -321,13 +321,6 @@ contract TokenGeyser is IStaking, Ownable {
      */
     function token() external view returns (address) {
         return address(getStakingToken());
-    }
-
-    /**
-     * @return False. This application does not support staking history.
-     */
-    function supportsHistory() external pure returns (bool) {
-        return false;
     }
 
     /**
@@ -423,7 +416,7 @@ contract TokenGeyser is IStaking, Ownable {
 
         totalLockedShares = totalLockedShares.add(mintedLockedShares);
 
-        require(_lockedPool.getToken().transferFrom(msg.sender, address(_lockedPool), amount));
+        require(_lockedPool.token().transferFrom(msg.sender, address(_lockedPool), amount));
         emit TokensLocked(amount, durationSec, totalLocked());
     }
 
@@ -435,11 +428,11 @@ contract TokenGeyser is IStaking, Ownable {
     function unlockTokens() public returns (uint256) {
         uint256 unlockedTokens = 0;
 
-        if(totalLockedShares == 0) {
+        if (totalLockedShares == 0) {
             unlockedTokens = totalLocked();
         } else {
             uint256 unlockedShares = 0;
-            for(uint256 s = 0; s < unlockSchedules.length; s++) {
+            for (uint256 s = 0; s < unlockSchedules.length; s++) {
                 unlockedShares += unlockScheduleShares(s);
             }
             unlockedTokens = unlockedShares.mul(totalLocked()).div(totalLockedShares);
