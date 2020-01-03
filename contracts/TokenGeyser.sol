@@ -49,7 +49,7 @@ contract TokenGeyser is IStaking, Ownable {
     // Global accounting state
     //
     uint256 public totalLockedShares = 0;
-    uint256 private _totalStakingShares = 0;
+    uint256 public totalStakingShares = 0;
     uint256 private _totalStakingShareSeconds = 0;
     uint256 private _lastAccountingTimestampSec = 0;
     uint256 private _maxUnlockSchedules = 0;
@@ -158,7 +158,7 @@ contract TokenGeyser is IStaking, Ownable {
 
         // 1. User Accounting
         uint256 mintedStakingShares = (totalStaked() > 0)
-            ? _totalStakingShares.mul(amount).div(totalStaked())
+            ? totalStakingShares.mul(amount).div(totalStaked())
             : amount;
 
         UserTotals storage totals = _userTotals[beneficiary];
@@ -169,7 +169,7 @@ contract TokenGeyser is IStaking, Ownable {
         _userStakes[beneficiary].push(newStake);
 
         // 2. Global Accounting
-        _totalStakingShares = _totalStakingShares.add(mintedStakingShares);
+        totalStakingShares = totalStakingShares.add(mintedStakingShares);
         // Already set in updateAccounting()
         // _lastAccountingTimestampSec = now;
 
@@ -214,7 +214,7 @@ contract TokenGeyser is IStaking, Ownable {
         // 1. User Accounting
         UserTotals memory totals = _userTotals[msg.sender];
         Stake[] storage accountStakes = _userStakes[msg.sender];
-        uint256 stakingSharesToBurn = _totalStakingShares.mul(amount).div(totalStaked());
+        uint256 stakingSharesToBurn = totalStakingShares.mul(amount).div(totalStaked());
 
         // Redeem from most recent stake and go backwards in time.
         uint256 stakingShareSecondsToBurn = 0;
@@ -248,7 +248,7 @@ contract TokenGeyser is IStaking, Ownable {
 
         // 2. Global Accounting
         _totalStakingShareSeconds = _totalStakingShareSeconds.sub(stakingShareSecondsToBurn);
-        _totalStakingShares = _totalStakingShares.sub(stakingSharesToBurn);
+        totalStakingShares = totalStakingShares.sub(stakingSharesToBurn);
         // Already set in updateAccounting
         // _lastAccountingTimestampSec = now;
 
@@ -303,8 +303,8 @@ contract TokenGeyser is IStaking, Ownable {
      * @return The number of staking tokens deposited for addr.
      */
     function totalStakedFor(address addr) public view returns (uint256) {
-        return _totalStakingShares > 0 ?
-            totalStaked().mul(_userTotals[addr].stakingShares).div(_totalStakingShares) : 0;
+        return totalStakingShares > 0 ?
+            totalStaked().mul(_userTotals[addr].stakingShares).div(totalStakingShares) : 0;
     }
 
     /**
@@ -342,7 +342,7 @@ contract TokenGeyser is IStaking, Ownable {
         uint256 newStakingShareSeconds =
             now
             .sub(_lastAccountingTimestampSec)
-            .mul(_totalStakingShares);
+            .mul(totalStakingShares);
         _totalStakingShareSeconds = _totalStakingShareSeconds.add(newStakingShareSeconds);
         _lastAccountingTimestampSec = now;
 

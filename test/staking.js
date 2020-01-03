@@ -82,6 +82,7 @@ contract('staking', function (accounts) {
       it('should updated the total staked', async function () {
         (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(100));
         (await dist.totalStakedFor.call(owner)).should.be.bignumber.eq(toAmplDecimalsStr(100));
+        (await dist.totalStakingShares.call()).should.be.bignumber.eq(toAmplDecimalsStr(100));
       });
       it('should log Staked', async function () {
         const l = r.logs[r.logs.length - 1];
@@ -109,6 +110,7 @@ contract('staking', function (accounts) {
         (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(200));
         (await dist.totalStakedFor.call(anotherAccount)).should.be.bignumber.eq(toAmplDecimalsStr(50));
         (await dist.totalStakedFor.call(owner)).should.be.bignumber.eq(toAmplDecimalsStr(150));
+        (await dist.totalStakingShares.call()).should.be.bignumber.eq(toAmplDecimalsStr(200));
       });
     });
 
@@ -131,6 +133,7 @@ contract('staking', function (accounts) {
         (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(250));
         (await dist.totalStakedFor.call(anotherAccount)).should.be.bignumber.eq(toAmplDecimalsStr(100));
         (await dist.totalStakedFor.call(owner)).should.be.bignumber.eq(toAmplDecimalsStr(150));
+        (await dist.totalStakingShares.call()).should.be.bignumber.eq(toAmplDecimalsStr(125));
       });
     });
 
@@ -153,6 +156,7 @@ contract('staking', function (accounts) {
         (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(175));
         (await dist.totalStakedFor.call(anotherAccount)).should.be.bignumber.eq(toAmplDecimalsStr(25));
         (await dist.totalStakedFor.call(owner)).should.be.bignumber.eq(toAmplDecimalsStr(150));
+        (await dist.totalStakingShares.call()).should.be.bignumber.eq(toAmplDecimalsStr(350));
       });
     });
   });
@@ -172,6 +176,7 @@ contract('staking', function (accounts) {
       (await dist.totalStaked.call()).should.be.bignumber.eq(toAmplDecimalsStr(100));
       (await dist.totalStakedFor.call(anotherAccount)).should.be.bignumber.eq(toAmplDecimalsStr(100));
       (await dist.totalStakedFor.call(owner)).should.be.bignumber.eq(toAmplDecimalsStr(0));
+      (await dist.totalStakingShares.call()).should.be.bignumber.eq(toAmplDecimalsStr(100));
     });
     it('should log Staked', async function () {
       const l = r.logs[r.logs.length - 1];
