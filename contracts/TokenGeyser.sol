@@ -221,7 +221,7 @@ contract TokenGeyser is IStaking, Ownable {
         uint256 sharesLeftToBurn = stakingSharesToBurn;
         uint256 rewardAmount = 0;
         while (sharesLeftToBurn > 0) {
-            Stake memory lastStake = accountStakes[accountStakes.length - 1];
+            Stake storage lastStake = accountStakes[accountStakes.length - 1];
             uint256 stakeTimeSec = now.sub(lastStake.timestampSec);
             uint256 newStakingShareSecondsToBurn = 0;
             if (lastStake.stakingShares <= sharesLeftToBurn) {

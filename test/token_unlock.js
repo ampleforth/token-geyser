@@ -332,8 +332,8 @@ contract('LockedPool', function (accounts) {
         r[3].div(100e9).should.be.bignumber.gte(timeElapsed - 1);
         r[3].div(100e9).should.be.bignumber.lte(timeElapsed + 1);
         await checkAproxBal(r[4], 70);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.gte(timeElapsed-1);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.lte(timeElapsed+1);
+        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.gte(timeElapsed - 1);
+        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.lte(timeElapsed + 1);
       });
     });
 
@@ -348,8 +348,8 @@ contract('LockedPool', function (accounts) {
         r[3].div(100e9).should.be.bignumber.gte(timeElapsed - 1);
         r[3].div(100e9).should.be.bignumber.lte(timeElapsed + 1);
         await checkAproxBal(r[4], 0);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.gte(timeElapsed-1);
-        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.lte(timeElapsed+1);
+        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.gte(timeElapsed - 1);
+        (new BigNumber(r[5]).minus(new BigNumber(_r[5]))).should.be.bignumber.lte(timeElapsed + 1);
       });
     });
   });

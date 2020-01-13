@@ -169,6 +169,43 @@ contract('unstaking', function (accounts) {
       });
     });
 
+    describe('when single user performs unstake many times', function () {
+      // 100 ampls locked for 1 year,
+      // user stakes 10 ampls, waits 1 year, stakes 10 ampls, waits 1 year, unstakes 5 ampl, unstakes 5 ampl, unstakes 5 ampl
+      // 3rd unstake should be worth twice the first one
+      beforeEach(async function () {
+        await dist.lockTokens(toAmplDecimalsStr(100), ONE_YEAR);
+
+        await dist.stake(toAmplDecimalsStr(10), [], { from: anotherAccount });
+        await chain.waitForSomeTime(ONE_YEAR);
+        await dist.stake(toAmplDecimalsStr(10), [], { from: anotherAccount });
+        await chain.waitForSomeTime(ONE_YEAR);
+
+        await dist.updateAccounting({ from: anotherAccount });
+        await checkAproxBal(totalRewardsFor(anotherAccount), 100);
+
+        _b = await ampl.balanceOf.call(anotherAccount);
+        await dist.unstake(toAmplDecimalsStr(5), [], { from: anotherAccount });
+      });
+
+      it('should use updated user accounting', async function () {
+        r = await dist.unstake(toAmplDecimalsStr(5), [], { from: anotherAccount });
+        const l1 = r.logs[r.logs.length - 1];
+        expect(l1.event).to.eql('TokensClaimed');
+        expect(l1.args.user).to.eql(anotherAccount);
+        const claim2 = l1.args.amount;
+
+        r = await dist.unstake(toAmplDecimalsStr(5), [], { from: anotherAccount });
+        const l2 = r.logs[r.logs.length - 1];
+        expect(l2.event).to.eql('TokensClaimed');
+        expect(l2.args.user).to.eql(anotherAccount);
+        const claim3 = l2.args.amount;
+
+        const ratio = claim3.div(claim2);
+        ratio.should.be.bignumber.above('1.999999').and.bignumber.below('2.000001');
+      });
+    });
+
     describe('when multiple users stake once', function () {
       // 100 ampls locked for 1 year,
       // userA stakes 50 ampls for 3/4 year, userb stakes 50 ampl for 1/2 year, total unlocked 75 ampl
