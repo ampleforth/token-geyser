@@ -51,7 +51,7 @@ contract TokenGeyser is IStaking, Ownable {
     uint256 public totalLockedShares = 0;
     uint256 public totalStakingShares = 0;
     uint256 private _totalStakingShareSeconds = 0;
-    uint256 private _lastAccountingTimestampSec = 0;
+    uint256 private _lastAccountingTimestampSec = now;
     uint256 private _maxUnlockSchedules = 0;
 
     //
