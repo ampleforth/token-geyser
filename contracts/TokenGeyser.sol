@@ -294,7 +294,7 @@ contract TokenGeyser is IStaking, Ownable {
             startBonus
             .add(oneHundredPct.sub(startBonus).mul(stakeTimeSec).div(bonusPeriodSec))
             .mul(newRewardTokens)
-            .div(10**BONUS_DECIMALS);
+            .div(oneHundredPct);
         return currentRewardTokens.add(bonusedReward);
     }
 
