@@ -404,8 +404,9 @@ contract TokenGeyser is IStaking, Ownable {
     function lockTokens(uint256 amount, uint256 durationSec) external onlyOwner {
         require(unlockSchedules.length < _maxUnlockSchedules);
 
-        uint256 mintedLockedShares = (totalLocked() > 0)
-            ? totalLockedShares.mul(amount).div(totalLocked())
+        uint256 lockedTokens = totalLocked();
+        uint256 mintedLockedShares = (lockedTokens > 0)
+            ? totalLockedShares.mul(amount).div(lockedTokens)
             : amount;
 
         UnlockSchedule memory schedule;
@@ -428,15 +429,16 @@ contract TokenGeyser is IStaking, Ownable {
      */
     function unlockTokens() public returns (uint256) {
         uint256 unlockedTokens = 0;
+        uint256 lockedTokens = totalLocked();
 
         if (totalLockedShares == 0) {
-            unlockedTokens = totalLocked();
+            unlockedTokens = lockedTokens;
         } else {
             uint256 unlockedShares = 0;
             for (uint256 s = 0; s < unlockSchedules.length; s++) {
                 unlockedShares += unlockScheduleShares(s);
             }
-            unlockedTokens = unlockedShares.mul(totalLocked()).div(totalLockedShares);
+            unlockedTokens = unlockedShares.mul(lockedTokens).div(totalLockedShares);
             totalLockedShares = totalLockedShares.sub(unlockedShares);
         }
 
