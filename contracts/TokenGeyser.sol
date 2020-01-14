@@ -82,6 +82,7 @@ contract TokenGeyser is IStaking, Ownable {
     //
     struct UnlockSchedule {
         uint256 initialLockedShares;
+        uint256 unlockedShares;
         uint256 lastUnlockTimestampSec;
         uint256 endAtSec;
         uint256 durationSec;
@@ -457,13 +458,23 @@ contract TokenGeyser is IStaking, Ownable {
     function unlockScheduleShares(uint256 s) private returns (uint256) {
         UnlockSchedule storage schedule = unlockSchedules[s];
 
-        uint256 unlockTimestampSec = (now < schedule.endAtSec) ? now : schedule.endAtSec;
-        uint256 unlockedShares = unlockTimestampSec.sub(schedule.lastUnlockTimestampSec)
-            .mul(schedule.initialLockedShares)
-            .div(schedule.durationSec);
+        if(schedule.unlockedShares >= schedule.initialLockedShares){
+            return 0;
+        }
 
-        schedule.lastUnlockTimestampSec = unlockTimestampSec;
+        uint256 sharesToUnlock = 0;
+        // Special case to handle any leftover dust from integer division
+        if(now >= schedule.endAtSec){
+            sharesToUnlock = (schedule.initialLockedShares - schedule.unlockedShares);
+            schedule.lastUnlockTimestampSec = schedule.endAtSec;
+        } else {
+            sharesToUnlock = now.sub(schedule.lastUnlockTimestampSec)
+                .mul(schedule.initialLockedShares)
+                .div(schedule.durationSec);
+            schedule.lastUnlockTimestampSec = now;
+        }
 
-        return unlockedShares;
+        schedule.unlockedShares += sharesToUnlock;
+        return sharesToUnlock;
     }
 }

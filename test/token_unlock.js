@@ -79,8 +79,9 @@ contract('LockedPool', function (accounts) {
       it('should create a schedule', async function () {
         const s = await dist.unlockSchedules.call(0);
         (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(100));
-        (s[3]).should.be.bignumber.eq(ONE_YEAR);
-        (s[1].plus(s[3])).should.be.bignumber.eq(s[2]);
+        (s[1]).should.be.bignumber.eq(toAmplDecimalsStr(0));
+        (s[2].plus(s[4])).should.be.bignumber.eq(s[3]);
+        (s[4]).should.be.bignumber.eq(ONE_YEAR);
         (await dist.unlockScheduleCount.call()).should.be.bignumber.eq(1);
       });
       it('should log TokensLocked', async function () {
@@ -123,8 +124,9 @@ contract('LockedPool', function (accounts) {
       it('should create a schedule', async function () {
         const s = await dist.unlockSchedules.call(1);
         (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(50));
-        (s[3]).should.be.bignumber.eq(ONE_YEAR);
-        (s[1].plus(s[3])).should.be.bignumber.eq(s[2]);
+        (s[1]).should.be.bignumber.eq(toAmplDecimalsStr(0));
+        (s[2].plus(s[4])).should.be.bignumber.eq(s[3]);
+        (s[4]).should.be.bignumber.eq(ONE_YEAR);
         (await dist.unlockScheduleCount.call()).should.be.bignumber.eq(2);
       });
     });
@@ -143,8 +145,9 @@ contract('LockedPool', function (accounts) {
       it('should create a schedule', async function () {
         const s = await dist.unlockSchedules.call(1);
         (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(25));
-        (s[3]).should.be.bignumber.eq(ONE_YEAR);
-        (s[1].plus(s[3])).should.be.bignumber.eq(s[2]);
+        (s[1]).should.be.bignumber.eq(toAmplDecimalsStr(0));
+        (s[2].plus(s[4])).should.be.bignumber.eq(s[3]);
+        (s[4]).should.be.bignumber.eq(ONE_YEAR);
         (await dist.unlockScheduleCount.call()).should.be.bignumber.eq(2);
       });
     });
@@ -163,8 +166,9 @@ contract('LockedPool', function (accounts) {
       it('should create a schedule', async function () {
         const s = await dist.unlockSchedules.call(1);
         (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(100));
-        (s[3]).should.be.bignumber.eq(ONE_YEAR);
-        (s[1].plus(s[3])).should.be.bignumber.eq(s[2]);
+        (s[1]).should.be.bignumber.eq(toAmplDecimalsStr(0));
+        (s[2].plus(s[4])).should.be.bignumber.eq(s[3]);
+        (s[4]).should.be.bignumber.eq(ONE_YEAR);
         (await dist.unlockScheduleCount.call()).should.be.bignumber.eq(2);
       });
     });
@@ -192,12 +196,15 @@ contract('LockedPool', function (accounts) {
             await checkAproxBal(dist.totalUnlocked.call(), 50);
             await checkAvailableToUnlock(dist, 0);
           });
-          it('should log TokensUnlocked', async function () {
+          it('should log TokensUnlocked and update state', async function () {
             r = await dist.updateAccounting();
             const l = r.logs[r.logs.length - 1];
             expect(l.event).to.eql('TokensUnlocked');
             await checkAproxBal(l.args.amount, 50);
             await checkAproxBal(l.args.total, 50);
+            const s = await dist.unlockSchedules(0);
+            (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(100));
+            await checkAproxBal(s[1], 50);
           });
         });
 
@@ -255,12 +262,36 @@ contract('LockedPool', function (accounts) {
           await checkAproxBal(dist.totalUnlocked.call(), 100);
           await checkAvailableToUnlock(dist, 0);
         });
-        it('should log TokensUnlocked', async function () {
+        it('should log TokensUnlocked and update state', async function () {
           r = await dist.updateAccounting();
           const l = r.logs[r.logs.length - 1];
           expect(l.event).to.eql('TokensUnlocked');
           await checkAproxBal(l.args.amount, 100);
           await checkAproxBal(l.args.total, 0);
+          const s = await dist.unlockSchedules(0);
+          (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(100));
+          (s[1]).should.be.bignumber.eq(toAmplDecimalsStr(100));
+        });
+      });
+
+      describe('dust tokens due to division underflow', function () {
+        beforeEach(async function () {
+          await ampl.approve(dist.address, toAmplDecimalsStr(100));
+          await dist.lockTokens(toAmplDecimalsStr(1), 10 * ONE_YEAR);
+        });
+        it('should unlock all tokens', async function () {
+          // 1 AMPL locked for 10 years. Almost all time passes upto the last minute.
+          // 0.999999809 AMPLs are unlocked.
+          // 1 minute passes, Now: all of the rest are unlocked: 191
+          // before (#24): only 190 would have been unlocked and 0.000000001 AMPL would be
+          // locked.
+          await chain.waitForSomeTime(10 * ONE_YEAR - 60);
+          r = await dist.updateAccounting();
+          const l1 = r.logs[r.logs.length - 1];
+          await chain.waitForSomeTime(65);
+          r = await dist.updateAccounting();
+          const l2 = r.logs[r.logs.length - 1];
+          (l1.args.amount.add(l2.args.amount)).should.be.bignumber.eq(toAmplDecimalsStr(1));
         });
       });
     });
@@ -284,12 +315,18 @@ contract('LockedPool', function (accounts) {
         await checkAproxBal(dist.totalUnlocked.call(), 70);
         await checkAvailableToUnlock(dist, 0);
       });
-      it('should log TokensUnlocked', async function () {
+      it('should log TokensUnlocked and update state', async function () {
         r = await dist.updateAccounting();
         const l = r.logs[r.logs.length - 1];
         expect(l.event).to.eql('TokensUnlocked');
         await checkAproxBal(l.args.amount, 70);
         await checkAproxBal(l.args.total, 130);
+        let s = await dist.unlockSchedules(0);
+        (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(100));
+        await checkAproxBal(s[1], 60);
+        s = await dist.unlockSchedules(1);
+        (s[0]).should.be.bignumber.eq(toAmplDecimalsStr(100));
+        await checkAproxBal(s[1], 10);
       });
       it('should continue linear the unlock', async function () {
         await dist.updateAccounting();
