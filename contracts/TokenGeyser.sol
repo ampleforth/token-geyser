@@ -102,6 +102,9 @@ contract TokenGeyser is IStaking, Ownable {
                 uint256 startBonus_, uint256 bonusPeriodSec_) public {
         // The start bonus must be some fraction of the max. (i.e. <= 100%)
         require(startBonus_ <= 10**BONUS_DECIMALS);
+        // If no period is desired, instead set startBonus = 100%
+        // and bonusPeriod to a small value like 1sec.
+        require(bonusPeriodSec_ != 0);
 
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);

@@ -36,6 +36,14 @@ contract('staking', function (accounts) {
     });
   });
 
+  describe('when bonus period is 0', function () {
+    it('should fail to construct', async function () {
+      expect(await chain.isEthException(
+        TokenGeyser.new(ampl.address, ampl.address, 10, 50, 0)
+      )).to.be.true;
+    });
+  });
+
   describe('getStakingToken', function () {
     it('should return the staking token', async function () {
       expect(await dist.getStakingToken.call()).to.eq(ampl.address);
