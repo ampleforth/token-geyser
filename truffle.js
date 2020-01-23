@@ -7,7 +7,11 @@ module.exports = {
     testrpcCoverage: connectionConfig.testrpcCoverage
   },
   mocha: {
-    enableTimeouts: false
+    enableTimeouts: false,
+    reporter: 'eth-gas-reporter',
+    reporterOptions: {
+      currency: 'USD'
+    }
   },
   compilers: {
     solc: {

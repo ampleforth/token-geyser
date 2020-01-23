@@ -216,7 +216,7 @@ contract TokenGeyser is IStaking, Ownable {
         require(userStakedAmpl >= amount);
 
         // 1. User Accounting
-        UserTotals memory totals = _userTotals[msg.sender];
+        UserTotals storage totals = _userTotals[msg.sender];
         Stake[] storage accountStakes = _userStakes[msg.sender];
         uint256 stakingSharesToBurn = totalStakingShares.mul(amount).div(totalStaked());
 
@@ -248,7 +248,6 @@ contract TokenGeyser is IStaking, Ownable {
         totals.stakingShares = totals.stakingShares.sub(stakingSharesToBurn);
         // Already set in updateAccounting
         // totals.lastAccountingTimestampSec = now;
-        _userTotals[msg.sender] = totals;
 
         // 2. Global Accounting
         _totalStakingShareSeconds = _totalStakingShareSeconds.sub(stakingShareSecondsToBurn);
@@ -351,7 +350,7 @@ contract TokenGeyser is IStaking, Ownable {
         _lastAccountingTimestampSec = now;
 
         // User Accounting
-        UserTotals memory totals = _userTotals[msg.sender];
+        UserTotals storage totals = _userTotals[msg.sender];
         uint256 newUserStakingShareSeconds =
             now
             .sub(totals.lastAccountingTimestampSec)
@@ -360,7 +359,6 @@ contract TokenGeyser is IStaking, Ownable {
             totals.stakingShareSeconds
             .add(newUserStakingShareSeconds);
         totals.lastAccountingTimestampSec = now;
-        _userTotals[msg.sender] = totals;
 
         uint256 totalUserRewards = (_totalStakingShareSeconds > 0)
             ? totalUnlocked().mul(totals.stakingShareSeconds).div(_totalStakingShareSeconds)
