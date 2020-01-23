@@ -101,10 +101,10 @@ contract TokenGeyser is IStaking, Ownable {
     constructor(IERC20 stakingToken, IERC20 distributionToken, uint256 maxUnlockSchedules,
                 uint256 startBonus_, uint256 bonusPeriodSec_) public {
         // The start bonus must be some fraction of the max. (i.e. <= 100%)
-        require(startBonus_ <= 10**BONUS_DECIMALS);
+        require(startBonus_ <= 10**BONUS_DECIMALS, 'TokenGeyser: start bonus too high');
         // If no period is desired, instead set startBonus = 100%
         // and bonusPeriod to a small value like 1sec.
-        require(bonusPeriodSec_ != 0);
+        require(bonusPeriodSec_ != 0, 'TokenGeyser: bonus period is zero');
 
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
@@ -155,8 +155,8 @@ contract TokenGeyser is IStaking, Ownable {
      * @param amount Number of deposit tokens to stake.
      */
     function _stakeFor(address staker, address beneficiary, uint256 amount) private {
-        require(amount > 0);
-        require(beneficiary != address(0));
+        require(amount > 0, 'TokenGeyser: stake amount is zero');
+        require(beneficiary != address(0), 'TokenGeyser: beneficiary is zero address');
 
         updateAccounting();
 
@@ -178,7 +178,8 @@ contract TokenGeyser is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        require(_stakingPool.token().transferFrom(staker, address(_stakingPool), amount));
+        require(_stakingPool.token().transferFrom(staker, address(_stakingPool), amount),
+            'TokenGeyser: transfer into staking pool failed');
 
         emit Staked(beneficiary, amount, totalStakedFor(beneficiary), "");
     }
@@ -211,9 +212,9 @@ contract TokenGeyser is IStaking, Ownable {
         updateAccounting();
 
         // checks
-        require(amount > 0);
-        uint256 userStakedAmpl = totalStakedFor(msg.sender);
-        require(userStakedAmpl >= amount);
+        require(amount > 0, 'TokenGeyser: unstake amount is zero');
+        require(totalStakedFor(msg.sender) >= amount,
+            'TokenGeyser: unstake amount is greater than total user stakes');
 
         // 1. User Accounting
         UserTotals storage totals = _userTotals[msg.sender];
@@ -256,8 +257,10 @@ contract TokenGeyser is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        require(_stakingPool.transfer(msg.sender, amount));
-        require(_unlockedPool.transfer(msg.sender, rewardAmount));
+        require(_stakingPool.transfer(msg.sender, amount),
+            'TokenGeyser: transfer out of staking pool failed');
+        require(_unlockedPool.transfer(msg.sender, rewardAmount),
+            'TokenGeyser: transfer out of unlocked pool failed');
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), "");
         emit TokensClaimed(msg.sender, rewardAmount);
@@ -403,7 +406,8 @@ contract TokenGeyser is IStaking, Ownable {
      * @param durationSec Length of time to linear unlock the tokens.
      */
     function lockTokens(uint256 amount, uint256 durationSec) external onlyOwner {
-        require(unlockSchedules.length < _maxUnlockSchedules);
+        require(unlockSchedules.length < _maxUnlockSchedules,
+            'TokenGeyser: reached maximum unlock schedules');
 
         uint256 lockedTokens = totalLocked();
         uint256 mintedLockedShares = (lockedTokens > 0)
@@ -419,7 +423,8 @@ contract TokenGeyser is IStaking, Ownable {
 
         totalLockedShares = totalLockedShares.add(mintedLockedShares);
 
-        require(_lockedPool.token().transferFrom(msg.sender, address(_lockedPool), amount));
+        require(_lockedPool.token().transferFrom(msg.sender, address(_lockedPool), amount),
+            'TokenGeyser: transfer into locked pool failed');
         emit TokensLocked(amount, durationSec, totalLocked());
     }
 
@@ -444,7 +449,8 @@ contract TokenGeyser is IStaking, Ownable {
         }
 
         if (unlockedTokens > 0) {
-            require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens));
+            require(_lockedPool.transfer(address(_unlockedPool), unlockedTokens),
+                'TokenGeyser: transfer out of locked pool failed');
             emit TokensUnlocked(unlockedTokens, totalLocked());
         }
 

@@ -1,5 +1,5 @@
 const { contract, web3 } = require('@openzeppelin/test-environment');
-const { expectRevert, expectEvent } = require('@openzeppelin/test-helpers');
+const { expectRevert, expectEvent, constants } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const _require = require('app-root-path').require;
@@ -31,19 +31,15 @@ describe('staking', function () {
 
   describe('when start bonus too high', function () {
     it('should fail to construct', async function () {
-      await expectRevert.unspecified(TokenGeyser.new(ampl.address, ampl.address, 10, 101, 86400));
+      await expectRevert(TokenGeyser.new(ampl.address, ampl.address, 10, 101, 86400),
+        'TokenGeyser: start bonus too high');
     });
   });
 
   describe('when bonus period is 0', function () {
     it('should fail to construct', async function () {
-      await expectRevert.unspecified(TokenGeyser.new(ampl.address, ampl.address, 10, 50, 0));
-    });
-  });
-
-  describe('when bonus period is 0', function () {
-    it('should fail to construct', async function () {
-      await expectRevert.unspecified(TokenGeyser.new(ampl.address, ampl.address, 10, 50, 0));
+      await expectRevert(TokenGeyser.new(ampl.address, ampl.address, 10, 50, 0),
+        'TokenGeyser: bonus period is zero');
     });
   });
 
@@ -66,17 +62,17 @@ describe('staking', function () {
   });
 
   describe('stake', function () {
-    describe('when token transfer has not been approved', function () {
-      it('should fail', async function () {
-        await ampl.approve(dist.address, $AMPL(0));
-        await expectRevert.unspecified(dist.stake($AMPL(100), []));
-      });
-    });
-
     describe('when the amount is 0', function () {
       it('should fail', async function () {
         await ampl.approve(dist.address, $AMPL(1000));
         await expectRevert.unspecified(dist.stake($AMPL(0), []));
+      });
+    });
+
+    describe('when token transfer has not been approved', function () {
+      it('should fail', async function () {
+        await ampl.approve(dist.address, $AMPL(10));
+        await expectRevert.unspecified(dist.stake($AMPL(100), []));
       });
     });
 
@@ -166,29 +162,38 @@ describe('staking', function () {
   });
 
   describe('stakeFor', function () {
-    beforeEach(async function () {
-      expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
-      await ampl.approve(dist.address, $AMPL(100));
+    describe('when the beneficiary is ZERO_ADDRESS', function () {
+      it('should fail', async function () {
+        await expectRevert(dist.stakeFor(constants.ZERO_ADDRESS, $AMPL(100), []),
+          'TokenGeyser: beneficiary is zero address');
+      });
     });
-    it('should deduct ampls for the staker', async function () {
-      const b = await ampl.balanceOf.call(owner);
-      await dist.stakeFor(anotherAccount, $AMPL(100), []);
-      const b_ = await ampl.balanceOf.call(owner);
-      expect(b.sub(b_)).to.be.bignumber.equal($AMPL(100));
-    });
-    it('should updated the total staked on behalf of the beneficiary', async function () {
-      await dist.stakeFor(anotherAccount, $AMPL(100), []);
-      expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
-      expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(100));
-      expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(0));
-      expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100));
-    });
-    it('should log Staked', async function () {
-      const r = await dist.stakeFor(anotherAccount, $AMPL(100), []);
-      expectEvent(r, 'Staked', {
-        user: anotherAccount,
-        amount: $AMPL(100),
-        total: $AMPL(100)
+
+    describe('when the beneficiary is a valid address', function () {
+      beforeEach(async function () {
+        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
+        await ampl.approve(dist.address, $AMPL(100));
+      });
+      it('should deduct ampls for the staker', async function () {
+        const b = await ampl.balanceOf.call(owner);
+        await dist.stakeFor(anotherAccount, $AMPL(100), []);
+        const b_ = await ampl.balanceOf.call(owner);
+        expect(b.sub(b_)).to.be.bignumber.equal($AMPL(100));
+      });
+      it('should updated the total staked on behalf of the beneficiary', async function () {
+        await dist.stakeFor(anotherAccount, $AMPL(100), []);
+        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
+        expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(100));
+        expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(0));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100));
+      });
+      it('should log Staked', async function () {
+        const r = await dist.stakeFor(anotherAccount, $AMPL(100), []);
+        expectEvent(r, 'Staked', {
+          user: anotherAccount,
+          amount: $AMPL(100),
+          total: $AMPL(100)
+        });
       });
     });
   });

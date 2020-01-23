@@ -65,7 +65,8 @@ describe('LockedPool', function () {
         await d.lockTokens($AMPL(10), ONE_YEAR);
         await d.lockTokens($AMPL(10), ONE_YEAR);
         await d.lockTokens($AMPL(10), ONE_YEAR);
-        await expectRevert.unspecified(d.lockTokens($AMPL(10), ONE_YEAR));
+        await expectRevert(d.lockTokens($AMPL(10), ONE_YEAR),
+          'TokenGeyser: reached maximum unlock schedules');
       });
     });
 
@@ -97,7 +98,8 @@ describe('LockedPool', function () {
       });
       it('should be protected', async function () {
         await ampl.approve(dist.address, $AMPL(100));
-        await expectRevert.unspecified(dist.lockTokens($AMPL(50), ONE_YEAR, { from: anotherAccount }));
+        await expectRevert(dist.lockTokens($AMPL(50), ONE_YEAR, { from: anotherAccount }),
+          'Ownable: caller is not the owner');
         await dist.lockTokens($AMPL(50), ONE_YEAR);
       });
     });

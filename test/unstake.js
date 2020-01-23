@@ -48,8 +48,9 @@ describe('unstaking', function () {
     describe('when amount is 0', function () {
       it('should fail', async function () {
         await dist.stake($AMPL(50), [], { from: anotherAccount });
-        await expectRevert.unspecified(
-          dist.unstake($AMPL(0), [], { from: anotherAccount })
+        await expectRevert(
+          dist.unstake($AMPL(0), [], { from: anotherAccount }),
+          'TokenGeyser: unstake amount is zero'
         );
       });
     });
@@ -61,8 +62,9 @@ describe('unstaking', function () {
       });
       it('should fail if user tries to unstake more than his balance', async function () {
         await invokeRebase(ampl, -50);
-        await expectRevert.unspecified(
-          dist.unstake($AMPL(50), [], { from: anotherAccount })
+        await expectRevert(
+          dist.unstake($AMPL(50), [], { from: anotherAccount }),
+          'TokenGeyser: unstake amount is greater than total user stakes'
         );
       });
       it('should NOT fail if user tries to unstake his balance', async function () {

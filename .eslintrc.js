@@ -39,7 +39,7 @@ module.exports = {
               "passcode", "geth", "rpc", "rpcmsg","stdev",  "stochasm", "aggregator",
               "whitelist", "ethereum", "npx", "testrpc", "solc", "whitelisted",
               "unlockable", "openzeppelin", "checksum", "unstakes", "txfee",
-              "relayer", "gsn", 
+              "relayer", "gsn",
 
               // shorthand
               "eth", "args", "util", "utils", "msg", "prev", "bal",
@@ -51,7 +51,7 @@ module.exports = {
               "rebase", "gons", "frg", "rng", "blockchain", "minlot",
               "redemptions", "rebased", "ganache", "ethclient",
               "bytecode", "Binance", "ampl", "unstake", "unstaked", "unstaking",
-              "ampls", "staker",
+              "ampls", "staker", "ownable",
 
               // names
               "nithin", "naguib"
