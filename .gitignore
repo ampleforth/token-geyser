@@ -72,3 +72,5 @@ scDebugLog
 coverage.json
 coverage/
 coverageEnv/
+
+.openzeppelin

@@ -1,26 +1,29 @@
-const BigNumber = web3.BigNumber;
-require('chai').use(require('chai-bignumber')(BigNumber)).should();
+const { BN } = require('@openzeppelin/test-helpers');
+const { expect } = require('chai');
 
+const PERC_DECIMALS = 2;
 const AMPL_DECIMALS = 9;
-const INITIAL_AMPL_SUPPLY = toAmplDecimals(50000000);
 
-function toAmplDecimals (x) {
-  return new BigNumber(10 ** AMPL_DECIMALS).times(new BigNumber(parseInt(x * 100))).dividedBy(new BigNumber(100));
-}
-
-function toAmplDecimalsStr (x) {
-  return toAmplDecimals(x).toString();
+function $AMPL (x) {
+  const ordinate = 10 ** AMPL_DECIMALS;
+  return new BN(parseInt(x * ordinate));
 }
 
 async function invokeRebase (ampl, perc) {
   const s = await ampl.totalSupply.call();
-  await ampl.rebase(1, s.times(new BigNumber(perc)).dividedBy(new BigNumber(100)));
+  const ordinate = 10 ** PERC_DECIMALS;
+  const p_ = new BN(parseInt(perc * ordinate)).div(new BN(100));
+  const s_ = s.mul(p_).div(new BN(ordinate));
+  await ampl.rebase(1, s_);
 }
 
-async function checkAproxBal (x, y, tolerance = 5) {
-  const delta = new BigNumber(toAmplDecimalsStr(1)).dividedBy(new BigNumber(tolerance));
-  (await x).should.be.bignumber.gt(toAmplDecimals(y).minus(delta));
-  (await x).should.be.bignumber.lt(toAmplDecimals(y).plus(delta));
+async function checkAprox (x, y, tolerance = 0.2) {
+  const ordinate = 10 ** PERC_DECIMALS;
+  const t_ = new BN(parseInt(tolerance * ordinate));
+  const delta = new BN($AMPL(1)).mul(t_).div(new BN(ordinate));
+  const upper = $AMPL(y).add(delta);
+  const lower = $AMPL(y).sub(delta);
+  expect(await x).to.be.bignumber.above(lower).and.bignumber.below(upper);
 }
 
-module.exports = { INITIAL_AMPL_SUPPLY, checkAproxBal, toAmplDecimalsStr, invokeRebase };
+module.exports = { checkAprox, invokeRebase, $AMPL };

@@ -38,7 +38,8 @@ module.exports = {
               "arg", "npm", "seedrandom", "eql", "sinon", "yaml", "posix", "promisify",
               "passcode", "geth", "rpc", "rpcmsg","stdev",  "stochasm", "aggregator",
               "whitelist", "ethereum", "npx", "testrpc", "solc", "whitelisted",
-              "unlockable",
+              "unlockable", "openzeppelin", "checksum", "unstakes", "txfee",
+              "relayer", "gsn", 
 
               // shorthand
               "eth", "args", "util", "utils", "msg", "prev", "bal",

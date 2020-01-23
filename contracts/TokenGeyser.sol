@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity 0.5.0;
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
@@ -134,7 +134,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @param amount Number of deposit tokens to stake.
      * @param data Not used.
      */
-    function stake(uint256 amount, bytes data) external {
+    function stake(uint256 amount, bytes calldata data) external {
         _stakeFor(msg.sender, msg.sender, amount);
     }
 
@@ -144,7 +144,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @param amount Number of deposit tokens to stake.
      * @param data Not used.
      */
-    function stakeFor(address user, uint256 amount, bytes data) external {
+    function stakeFor(address user, uint256 amount, bytes calldata data) external {
         _stakeFor(msg.sender, user, amount);
     }
 
@@ -189,7 +189,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @param amount Number of deposit tokens to unstake / withdraw.
      * @param data Not used.
      */
-    function unstake(uint256 amount, bytes data) external {
+    function unstake(uint256 amount, bytes calldata data) external {
         _unstake(amount);
     }
 
@@ -197,7 +197,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @param amount Number of deposit tokens to unstake / withdraw.
      * @return The total number of distribution tokens that would be rewarded.
      */
-    function unstakeQuery(uint256 amount) public view returns (uint256) {
+    function unstakeQuery(uint256 amount) public returns (uint256) {
         return _unstake(amount);
     }
 
