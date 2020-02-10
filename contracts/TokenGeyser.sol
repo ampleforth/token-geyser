@@ -158,13 +158,14 @@ contract TokenGeyser is IStaking, Ownable {
         require(amount > 0, 'TokenGeyser: stake amount is zero');
         require(beneficiary != address(0), 'TokenGeyser: beneficiary is zero address');
 
-        updateAccounting();
-
-        // 1. User Accounting
         uint256 mintedStakingShares = (totalStaked() > 0)
             ? totalStakingShares.mul(amount).div(totalStaked())
             : amount;
+        require(mintedStakingShares > 0, "TokenGeyser: Stake amount is too small.");
 
+        updateAccounting();
+
+        // 1. User Accounting
         UserTotals storage totals = _userTotals[beneficiary];
         totals.stakingShares = totals.stakingShares.add(mintedStakingShares);
         totals.lastAccountingTimestampSec = now;
@@ -215,11 +216,12 @@ contract TokenGeyser is IStaking, Ownable {
         require(amount > 0, 'TokenGeyser: unstake amount is zero');
         require(totalStakedFor(msg.sender) >= amount,
             'TokenGeyser: unstake amount is greater than total user stakes');
+        uint256 stakingSharesToBurn = totalStakingShares.mul(amount).div(totalStaked());
+        require(stakingSharesToBurn > 0, "TokenGeyser: Unable to unstake amount this small.");
 
         // 1. User Accounting
         UserTotals storage totals = _userTotals[msg.sender];
         Stake[] storage accountStakes = _userStakes[msg.sender];
-        uint256 stakingSharesToBurn = totalStakingShares.mul(amount).div(totalStaked());
 
         // Redeem from most recent stake and go backwards in time.
         uint256 stakingShareSecondsToBurn = 0;

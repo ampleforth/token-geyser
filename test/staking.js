@@ -97,7 +97,7 @@ describe('staking', function () {
       });
     });
 
-    describe('when toatlStaked>0', function () {
+    describe('when totalStaked>0', function () {
       beforeEach(async function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
         await ampl.transfer(anotherAccount, $AMPL(50));
@@ -114,7 +114,7 @@ describe('staking', function () {
       });
     });
 
-    describe('when toatlStaked>0, rebase increases supply', function () {
+    describe('when totalStaked>0, rebase increases supply', function () {
       beforeEach(async function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
         await ampl.transfer(anotherAccount, $AMPL(50));
@@ -137,7 +137,7 @@ describe('staking', function () {
       });
     });
 
-    describe('when toatlStaked>0, rebase decreases supply', function () {
+    describe('when totalStaked>0, rebase decreases supply', function () {
       beforeEach(async function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
         await ampl.transfer(anotherAccount, $AMPL(50));
