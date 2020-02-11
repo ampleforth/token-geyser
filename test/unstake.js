@@ -13,6 +13,7 @@ const {
 
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
 const TokenGeyser = contract.fromArtifact('TokenGeyser');
+const InitialSharesPerToken = 10 ** 6;
 
 const ONE_YEAR = 1 * 365 * 24 * 3600;
 
@@ -28,11 +29,12 @@ async function setupContractAndAccounts () {
 
   const startBonus = 50; // 50%
   const bonusPeriod = 86400; // 1 Day
-  dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
+  dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod,
+    InitialSharesPerToken);
 
-  await ampl.transfer(anotherAccount, $AMPL(1000));
-  await ampl.approve(dist.address, $AMPL(1000), { from: anotherAccount });
-  await ampl.approve(dist.address, $AMPL(1000), { from: owner });
+  await ampl.transfer(anotherAccount, $AMPL(50000));
+  await ampl.approve(dist.address, $AMPL(50000), { from: anotherAccount });
+  await ampl.approve(dist.address, $AMPL(50000), { from: owner });
 }
 
 async function totalRewardsFor (account) {
@@ -116,43 +118,43 @@ describe('unstaking', function () {
 
     describe('when single user unstake early with early bonus', function () {
       // Start bonus = 50%, Bonus Period = 1 Day.
-      // 100 ampls locked for 1 hour, so all will be unlocked by test-time.
-      // user stakes 50 ampls for 12 hours, half the period.
+      // 1000 ampls locked for 1 hour, so all will be unlocked by test-time.
+      // user stakes 500 ampls for 12 hours, half the period.
       // user is eligible for 75% of the max reward,
-      // unstakes 25 ampls, gets .5 * .75 * 100 ampls
-      // user's final balance is 62.5 ampl, (25 remains staked), eligible rewards (37.5 ampl)
+      // unstakes 250 ampls, gets .5 * .75 * 1000 ampls
+      // user's final balance is 625 ampl, (250 remains staked), eligible rewards (375 ampl)
       beforeEach(async function () {
-        await dist.lockTokens($AMPL(100), 1 * 60 * 60);
-        await dist.stake($AMPL(50), [], { from: anotherAccount });
+        await dist.lockTokens($AMPL(1000), 1 * 60 * 60);
+        await dist.stake($AMPL(500), [], { from: anotherAccount });
         await time.increase(12 * 60 * 60);
         await dist.updateAccounting({ from: anotherAccount });
-        await checkAprox(totalRewardsFor(anotherAccount), 100);
+        await checkAprox(totalRewardsFor(anotherAccount), 1000);
       });
       it('should update the total staked and rewards', async function () {
-        await dist.unstake($AMPL(25), [], { from: anotherAccount });
-        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(25));
-        expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(25));
-        await checkAprox(totalRewardsFor(anotherAccount), 62.5); // (.5 * .75 * 100) + 25
+        await dist.unstake($AMPL(250), [], { from: anotherAccount });
+        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(250));
+        expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(250));
+        await checkAprox(totalRewardsFor(anotherAccount), 625); // (.5 * .75 * 1000) + 250
       });
       it('should transfer back staked tokens + rewards', async function () {
         const _b = await ampl.balanceOf.call(anotherAccount);
-        await dist.unstake($AMPL(25), [], { from: anotherAccount });
+        await dist.unstake($AMPL(250), [], { from: anotherAccount });
         const b = await ampl.balanceOf.call(anotherAccount);
-        await checkAprox(b.sub(_b), 62.5);
+        await checkAprox(b.sub(_b), 625);
       });
       it('should log Unstaked', async function () {
-        const r = await dist.unstake($AMPL(25), [], { from: anotherAccount });
+        const r = await dist.unstake($AMPL(250), [], { from: anotherAccount });
         expectEvent(r, 'Unstaked', {
           user: anotherAccount,
-          amount: $AMPL(25),
-          total: $AMPL(25)
+          amount: $AMPL(250),
+          total: $AMPL(250)
         });
       });
       it('should log TokensClaimed', async function () {
-        const r = await dist.unstake($AMPL(25), [], { from: anotherAccount });
+        const r = await dist.unstake($AMPL(250), [], { from: anotherAccount });
         expectEvent(r, 'TokensClaimed', {
           user: anotherAccount,
-          amount: $AMPL(37.5) // .5 * .75 * 100
+          amount: $AMPL(375) // .5 * .75 * 1000
         });
       });
     });
@@ -256,35 +258,36 @@ describe('unstaking', function () {
     });
 
     describe('when multiple users stake many times', function () {
-      // 100 ampls locked for 1 year,
-      // userA stakes 50 ampls for 3/4 year, and 50 ampls for 1/4 year
-      // userb stakes 50 ampls for 1/2 year and 30 ampls for 1/4 year
-      // userA unstakes 100 ampls, gets 60.60% of the unlocked reward (45.45 ampl) ~ [50*0.75+50*0.25 / (50*0.75+50*0.25+50*0.5+30*0.25) * 75]
-      // user's final balance is 145.45 ampl
-      // userb unstakes 80 ampls, gets the 109.55 ampl
+      // 10000 ampls locked for 1 year,
+      // userA stakes 5000 ampls for 3/4 year, and 5000 ampls for 1/4 year
+      // userb stakes 5000 ampls for 1/2 year and 3000 ampls for 1/4 year
+      // userA unstakes 10000 ampls, gets 60.60% of the unlocked reward (4545 ampl)
+      //        ~ [5000*0.75+5000*0.25 / (5000*0.75+5000*0.25+5000*0.5+3000*0.25) * 7500]
+      // user's final balance is 14545 ampl
+      // userb unstakes 8000 ampls, gets the 10955 ampl
       beforeEach(async function () {
-        await dist.lockTokens($AMPL(100), ONE_YEAR);
-        await dist.stake($AMPL(50), [], { from: anotherAccount });
+        await dist.lockTokens($AMPL(10000), ONE_YEAR);
+        await dist.stake($AMPL(5000), [], { from: anotherAccount });
         await time.increase(ONE_YEAR / 4);
-        await dist.stake($AMPL(50), []);
+        await dist.stake($AMPL(5000), []);
         await time.increase(ONE_YEAR / 4);
-        await dist.stake($AMPL(50), [], { from: anotherAccount });
-        await dist.stake($AMPL(30), []);
+        await dist.stake($AMPL(5000), [], { from: anotherAccount });
+        await dist.stake($AMPL(3000), []);
         await time.increase(ONE_YEAR / 4);
         await dist.updateAccounting({ from: anotherAccount });
         await dist.updateAccounting();
-        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(180));
-        await checkAprox(totalRewardsFor(anotherAccount), 45.45);
-        await checkAprox(totalRewardsFor(owner), 29.55);
+        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(18000));
+        await checkAprox(totalRewardsFor(anotherAccount), 4545, 0.5);
+        await checkAprox(totalRewardsFor(owner), 2955, 0.5);
       });
       it('should update the total staked and rewards', async function () {
-        await dist.unstake($AMPL(100), [], { from: anotherAccount });
-        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(80));
+        await dist.unstake($AMPL(10000), [], { from: anotherAccount });
+        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(8000));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(0));
-        expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(80));
+        expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(8000));
         await checkAprox(totalRewardsFor(anotherAccount), 0);
-        await checkAprox(totalRewardsFor(owner), 29.55);
-        await dist.unstake($AMPL(80), []);
+        await checkAprox(totalRewardsFor(owner), 2955, 0.5);
+        await dist.unstake($AMPL(8000), []);
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(0));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(0));
@@ -293,13 +296,13 @@ describe('unstaking', function () {
       });
       it('should transfer back staked tokens + rewards', async function () {
         const b1 = await ampl.balanceOf.call(anotherAccount);
-        await dist.unstake($AMPL(100), [], { from: anotherAccount });
+        await dist.unstake($AMPL(10000), [], { from: anotherAccount });
         const b2 = await ampl.balanceOf.call(anotherAccount);
-        await checkAprox(b2.sub(b1), 145.45);
+        await checkAprox(b2.sub(b1), 14545, 0.5);
         const b3 = await ampl.balanceOf.call(owner);
-        await dist.unstake($AMPL(80), []);
+        await dist.unstake($AMPL(8000), []);
         const b4 = await ampl.balanceOf.call(owner);
-        await checkAprox(b4.sub(b3), 109.55);
+        await checkAprox(b4.sub(b3), 10955, 0.5);
       });
     });
   });

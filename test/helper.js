@@ -5,8 +5,8 @@ const PERC_DECIMALS = 2;
 const AMPL_DECIMALS = 9;
 
 function $AMPL (x) {
-  const ordinate = 10 ** AMPL_DECIMALS;
-  return new BN(parseInt(x * ordinate));
+  const ordinate = new BN(10 ** AMPL_DECIMALS);
+  return new BN(parseInt(x)).mul(ordinate);
 }
 
 async function invokeRebase (ampl, perc) {
@@ -23,7 +23,7 @@ async function checkAprox (x, y, tolerance = 0.2) {
   const delta = new BN($AMPL(1)).mul(t_).div(new BN(ordinate));
   const upper = $AMPL(y).add(delta);
   const lower = $AMPL(y).sub(delta);
-  expect(await x).to.be.bignumber.above(lower).and.bignumber.below(upper);
+  expect(await x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
 }
 
 module.exports = { checkAprox, invokeRebase, $AMPL };

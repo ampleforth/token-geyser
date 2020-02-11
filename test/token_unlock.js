@@ -17,6 +17,7 @@ const TokenGeyser = contract.fromArtifact('TokenGeyser');
 const ONE_YEAR = 1 * 365 * 24 * 3600;
 const START_BONUS = 50;
 const BONUS_PERIOD = 86400;
+const InitialSharesPerToken = 10 ** 6;
 
 let ampl, dist, owner, anotherAccount;
 async function setupContractAndAccounts () {
@@ -28,7 +29,8 @@ async function setupContractAndAccounts () {
   await ampl.initialize(owner);
   await ampl.setMonetaryPolicy(owner);
 
-  dist = await TokenGeyser.new(ampl.address, ampl.address, 10, START_BONUS, BONUS_PERIOD);
+  dist = await TokenGeyser.new(ampl.address, ampl.address, 10, START_BONUS, BONUS_PERIOD,
+    InitialSharesPerToken);
 }
 
 async function checkAvailableToUnlock (dist, v) {
@@ -51,14 +53,14 @@ describe('LockedPool', function () {
   describe('lockTokens', function () {
     describe('when not approved', function () {
       it('should fail', async function () {
-        const d = await TokenGeyser.new(ampl.address, ampl.address, 5, START_BONUS, BONUS_PERIOD);
+        const d = await TokenGeyser.new(ampl.address, ampl.address, 5, START_BONUS, BONUS_PERIOD, InitialSharesPerToken);
         await expectRevert.unspecified(d.lockTokens($AMPL(10), ONE_YEAR));
       });
     });
 
     describe('when number of unlock schedules exceeds the maxUnlockSchedules', function () {
       it('should fail', async function () {
-        const d = await TokenGeyser.new(ampl.address, ampl.address, 5, START_BONUS, BONUS_PERIOD);
+        const d = await TokenGeyser.new(ampl.address, ampl.address, 5, START_BONUS, BONUS_PERIOD, InitialSharesPerToken);
         await ampl.approve(d.address, $AMPL(100));
         await d.lockTokens($AMPL(10), ONE_YEAR);
         await d.lockTokens($AMPL(10), ONE_YEAR);
@@ -381,10 +383,10 @@ describe('LockedPool', function () {
         await checkAprox(r[0], 130);
         await checkAprox(r[1], 70);
         const timeElapsed = t.sub(_t);
-        expect(r[2].div(new BN(100e9))).to.be
+        expect(r[2].div(new BN(100e9).mul(new BN(InitialSharesPerToken)))).to.be
           .bignumber.above(timeElapsed.sub(new BN(5))).and
           .bignumber.below(timeElapsed.add(new BN(5)));
-        expect(r[3].div(new BN(100e9))).to.be
+        expect(r[3].div(new BN(100e9).mul(new BN(InitialSharesPerToken)))).to.be
           .bignumber.above(timeElapsed.sub(new BN(5))).and
           .bignumber.below(timeElapsed.add(new BN(5)));
         await checkAprox(r[4], 70);
@@ -403,8 +405,8 @@ describe('LockedPool', function () {
         await checkAprox(r[0], 130);
         await checkAprox(r[1], 70);
         const timeElapsed = t.sub(_t);
-        expect(r[2].div(new BN(100e9))).to.be.bignumber.equal('0');
-        expect(r[3].div(new BN(100e9))).to.be
+        expect(r[2].div(new BN(100e9).mul(new BN(InitialSharesPerToken)))).to.be.bignumber.equal('0');
+        expect(r[3].div(new BN(100e9).mul(new BN(InitialSharesPerToken)))).to.be
           .bignumber.above(timeElapsed.sub(new BN(5))).and
           .bignumber.below(timeElapsed.add(new BN(5)));
         await checkAprox(r[4], 0);

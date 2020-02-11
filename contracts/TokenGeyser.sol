@@ -53,6 +53,7 @@ contract TokenGeyser is IStaking, Ownable {
     uint256 private _totalStakingShareSeconds = 0;
     uint256 private _lastAccountingTimestampSec = now;
     uint256 private _maxUnlockSchedules = 0;
+    uint256 private _initialSharesPerToken = 0;
 
     //
     // User accounting state
@@ -97,14 +98,16 @@ contract TokenGeyser is IStaking, Ownable {
      * @param startBonus_ Starting time bonus, BONUS_DECIMALS fixed point.
      *                    e.g. 25% means user gets 25% of max distribution tokens.
      * @param bonusPeriodSec_ Length of time for bonus to increase linearly to max.
+     * @param initialSharesPerToken Number of shares to mint per staking token on first stake.
      */
     constructor(IERC20 stakingToken, IERC20 distributionToken, uint256 maxUnlockSchedules,
-                uint256 startBonus_, uint256 bonusPeriodSec_) public {
+                uint256 startBonus_, uint256 bonusPeriodSec_, uint256 initialSharesPerToken) public {
         // The start bonus must be some fraction of the max. (i.e. <= 100%)
         require(startBonus_ <= 10**BONUS_DECIMALS, 'TokenGeyser: start bonus too high');
         // If no period is desired, instead set startBonus = 100%
         // and bonusPeriod to a small value like 1sec.
         require(bonusPeriodSec_ != 0, 'TokenGeyser: bonus period is zero');
+        require(initialSharesPerToken > 0);
 
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
@@ -112,6 +115,7 @@ contract TokenGeyser is IStaking, Ownable {
         startBonus = startBonus_;
         bonusPeriodSec = bonusPeriodSec_;
         _maxUnlockSchedules = maxUnlockSchedules;
+        _initialSharesPerToken = initialSharesPerToken;
     }
 
     /**
@@ -160,7 +164,7 @@ contract TokenGeyser is IStaking, Ownable {
 
         uint256 mintedStakingShares = (totalStaked() > 0)
             ? totalStakingShares.mul(amount).div(totalStaked())
-            : amount;
+            : amount.mul(_initialSharesPerToken);
         require(mintedStakingShares > 0, "TokenGeyser: Stake amount is too small.");
 
         updateAccounting();

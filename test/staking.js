@@ -12,6 +12,7 @@ const {
 
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
 const TokenGeyser = contract.fromArtifact('TokenGeyser');
+const InitialSharesPerToken = 10 ** 6;
 
 let ampl, dist, owner, anotherAccount;
 describe('staking', function () {
@@ -26,19 +27,20 @@ describe('staking', function () {
 
     const startBonus = 50;
     const bonusPeriod = 86400;
-    dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod);
+    dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod,
+      InitialSharesPerToken);
   });
 
   describe('when start bonus too high', function () {
     it('should fail to construct', async function () {
-      await expectRevert(TokenGeyser.new(ampl.address, ampl.address, 10, 101, 86400),
+      await expectRevert(TokenGeyser.new(ampl.address, ampl.address, 10, 101, 86400, InitialSharesPerToken),
         'TokenGeyser: start bonus too high');
     });
   });
 
   describe('when bonus period is 0', function () {
     it('should fail to construct', async function () {
-      await expectRevert(TokenGeyser.new(ampl.address, ampl.address, 10, 50, 0),
+      await expectRevert(TokenGeyser.new(ampl.address, ampl.address, 10, 50, 0, InitialSharesPerToken),
         'TokenGeyser: bonus period is zero');
     });
   });
@@ -85,7 +87,7 @@ describe('staking', function () {
         await dist.stake($AMPL(100), []);
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(100));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100 * InitialSharesPerToken));
       });
       it('should log Staked', async function () {
         const r = await dist.stake($AMPL(100), []);
@@ -110,7 +112,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(200));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(50));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(150));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(200));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(200 * InitialSharesPerToken));
       });
     });
 
@@ -133,7 +135,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(250));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(150));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(125));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(125 * InitialSharesPerToken));
       });
     });
 
@@ -156,7 +158,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(175));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(25));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(150));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(350));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(350 * InitialSharesPerToken));
       });
     });
   });
@@ -185,7 +187,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(0));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100 * InitialSharesPerToken));
       });
       it('should log Staked', async function () {
         const r = await dist.stakeFor(anotherAccount, $AMPL(100), []);
