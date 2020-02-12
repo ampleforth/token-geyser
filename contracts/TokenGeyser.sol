@@ -161,8 +161,10 @@ contract TokenGeyser is IStaking, Ownable {
     function _stakeFor(address staker, address beneficiary, uint256 amount) private {
         require(amount > 0, 'TokenGeyser: stake amount is zero');
         require(beneficiary != address(0), 'TokenGeyser: beneficiary is zero address');
+        require(totalStakingShares == 0 || totalStaked() > 0,
+                'TokenGeyser: Invalid state. Staking shares exist, but no staking tokens do');
 
-        uint256 mintedStakingShares = (totalStaked() > 0)
+        uint256 mintedStakingShares = (totalStakingShares > 0)
             ? totalStakingShares.mul(amount).div(totalStaked())
             : amount.mul(_initialSharesPerToken);
         require(mintedStakingShares > 0, 'TokenGeyser: Stake amount is too small');
@@ -271,6 +273,8 @@ contract TokenGeyser is IStaking, Ownable {
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender), "");
         emit TokensClaimed(msg.sender, rewardAmount);
 
+        require(totalStakingShares == 0 || totalStaked() > 0,
+                "TokenGeyser: Error unstaking. Staking shares exist, but no staking tokens do");
         return rewardAmount;
     }
 
