@@ -120,12 +120,8 @@ describe('staking', function () {
       beforeEach(async function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
         await ampl.transfer(anotherAccount, $AMPL(50));
-        await ampl.approve(dist.address, $AMPL(50), {
-          from: anotherAccount
-        });
-        await dist.stake($AMPL(50), [], {
-          from: anotherAccount
-        });
+        await ampl.approve(dist.address, $AMPL(50), { from: anotherAccount });
+        await dist.stake($AMPL(50), [], { from: anotherAccount });
         await ampl.approve(dist.address, $AMPL(150));
         await invokeRebase(ampl, 100);
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
@@ -136,6 +132,20 @@ describe('staking', function () {
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(150));
         expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(125 * InitialSharesPerToken));
+      });
+    });
+
+    describe('when totalStaked>0, when rebase increases supply', function () {
+      beforeEach(async function () {
+        await ampl.approve(dist.address, $AMPL(51));
+        await dist.stake($AMPL(50), []);
+      });
+      it('should fail if there are too few mintedStakingShares', async function () {
+        await invokeRebase(ampl, 100 * InitialSharesPerToken);
+        await expectRevert(
+          dist.stake(1, []),
+          'TokenGeyser: Stake amount is too small'
+        );
       });
     });
 

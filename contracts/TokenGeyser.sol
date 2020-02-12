@@ -165,7 +165,7 @@ contract TokenGeyser is IStaking, Ownable {
         uint256 mintedStakingShares = (totalStaked() > 0)
             ? totalStakingShares.mul(amount).div(totalStaked())
             : amount.mul(_initialSharesPerToken);
-        require(mintedStakingShares > 0, "TokenGeyser: Stake amount is too small.");
+        require(mintedStakingShares > 0, 'TokenGeyser: Stake amount is too small');
 
         updateAccounting();
 
@@ -221,7 +221,7 @@ contract TokenGeyser is IStaking, Ownable {
         require(totalStakedFor(msg.sender) >= amount,
             'TokenGeyser: unstake amount is greater than total user stakes');
         uint256 stakingSharesToBurn = totalStakingShares.mul(amount).div(totalStaked());
-        require(stakingSharesToBurn > 0, "TokenGeyser: Unable to unstake amount this small.");
+        require(stakingSharesToBurn > 0, 'TokenGeyser: Unable to unstake amount this small');
 
         // 1. User Accounting
         UserTotals storage totals = _userTotals[msg.sender];

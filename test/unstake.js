@@ -57,6 +57,31 @@ describe('unstaking', function () {
       });
     });
 
+    describe('when rebase increases supply', function () {
+      beforeEach(async function () {
+        await dist.stake($AMPL(50), [], { from: anotherAccount });
+        await time.increase(1);
+      });
+      it('should fail if user tries to unstake more than his balance', async function () {
+        await invokeRebase(ampl, +50);
+        await expectRevert(
+          dist.unstake($AMPL(85), [], { from: anotherAccount }),
+          'TokenGeyser: unstake amount is greater than total user stakes'
+        );
+      });
+      it('should NOT fail if user tries to unstake his balance', async function () {
+        await invokeRebase(ampl, +50);
+        await dist.unstake($AMPL(75), [], { from: anotherAccount });
+      });
+      it('should fail if there are too few stakingSharesToBurn', async function () {
+        await invokeRebase(ampl, 100 * InitialSharesPerToken);
+        await expectRevert(
+          dist.unstake(1, [], { from: anotherAccount }),
+          'TokenGeyser: Unable to unstake amount this small'
+        );
+      });
+    });
+
     describe('when rebase decreases supply', function () {
       beforeEach(async function () {
         await dist.stake($AMPL(50), [], { from: anotherAccount });
@@ -71,7 +96,7 @@ describe('unstaking', function () {
       });
       it('should NOT fail if user tries to unstake his balance', async function () {
         await invokeRebase(ampl, -50);
-        dist.unstake($AMPL(25), [], { from: anotherAccount });
+        await dist.unstake($AMPL(25), [], { from: anotherAccount });
       });
     });
 
