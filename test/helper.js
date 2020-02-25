@@ -9,7 +9,7 @@ const AMPL_DECIMALS = 9;
 
 function $AMPL (x) {
   const ordinate = new BN(10 ** AMPL_DECIMALS);
-  return new BN(parseFloat(x)).mul(ordinate);
+  return new BN(parseInt(x)).mul(ordinate);
 }
 
 async function invokeRebase (ampl, perc) {
