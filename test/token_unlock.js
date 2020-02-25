@@ -8,7 +8,8 @@ const chain = new BlockchainCaller(web3);
 const {
   $AMPL,
   invokeRebase,
-  checkAprox
+  checkAprox,
+  setTimeForNextTransaction
 } = _require('/test/helper');
 
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
@@ -110,17 +111,17 @@ describe('LockedPool', function () {
       let initialTime;
       beforeEach(async function () {
         await ampl.approve(dist.address, $AMPL(150));
-        initialTime = await time.latest();
         await dist.lockTokens($AMPL(100), ONE_YEAR);
+        initialTime = await time.latest();
         checkAprox(await dist.totalLocked.call(), 100);
       });
       it('should updated the locked and unlocked pool balance', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
+        await setTimeForNextTransaction(initialTime.add(new BN(ONE_YEAR / 10)));
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         checkAprox(await dist.totalLocked.call(), 100 * 0.9 + 50);
       });
       it('should log TokensUnlocked and TokensLocked', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
+        await setTimeForNextTransaction(initialTime.add(new BN(ONE_YEAR / 10)));
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
         expectEvent(r, 'TokensUnlocked', {
           amount: $AMPL(100 * 0.1),
@@ -147,8 +148,8 @@ describe('LockedPool', function () {
       let initialTime;
       beforeEach(async function () {
         await ampl.approve(dist.address, $AMPL(150));
-        initialTime = await time.latest();
         await dist.lockTokens($AMPL(100), ONE_YEAR);
+        initialTime = await time.latest();
         checkAprox(await dist.totalLocked.call(), 100);
         await invokeRebase(ampl, 100);
       });
@@ -157,7 +158,7 @@ describe('LockedPool', function () {
         checkAprox(await dist.totalLocked.call(), 250);
       });
       it('should log TokensUnlocked and TokensLocked', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
+        await setTimeForNextTransaction(initialTime.add(new BN(ONE_YEAR / 10)));
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
         expectEvent(r, 'TokensUnlocked', {
           amount: $AMPL(200 * 0.1),
@@ -184,8 +185,8 @@ describe('LockedPool', function () {
       let initialTime;
       beforeEach(async function () {
         await ampl.approve(dist.address, $AMPL(150));
-        initialTime = await time.latest();
         await dist.lockTokens($AMPL(100), ONE_YEAR);
+        initialTime = await time.latest();
         checkAprox(await dist.totalLocked.call(), 100);
         await invokeRebase(ampl, -50);
       });
@@ -194,7 +195,7 @@ describe('LockedPool', function () {
         checkAprox(await dist.totalLocked.call(), 100);
       });
       it('should log TokensUnlocked and TokensLocked', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
+        await setTimeForNextTransaction(initialTime.add(new BN(ONE_YEAR / 10)));
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
         expectEvent(r, 'TokensUnlocked', {
           amount: $AMPL(50 * 0.1),
