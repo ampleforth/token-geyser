@@ -84,7 +84,7 @@ describe('LockedPool', function () {
       it('should create a schedule', async function () {
         await dist.lockTokens($AMPL(100), ONE_YEAR);
         const s = await dist.unlockSchedules.call(0);
-        expect(s[0]).to.be.bignumber.equal($AMPL(100));
+        expect(s[0]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
         expect(s[1]).to.be.bignumber.equal($AMPL(0));
         expect(s[2].add(s[4])).to.be.bignumber.equal(s[3]);
         expect(s[4]).to.be.bignumber.equal(`${ONE_YEAR}`);
@@ -127,7 +127,7 @@ describe('LockedPool', function () {
       it('should create a schedule', async function () {
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         const s = await dist.unlockSchedules.call(1);
-        expect(s[0]).to.be.bignumber.equal($AMPL(50));
+        expect(s[0]).to.be.bignumber.equal($AMPL(50).mul(new BN(InitialSharesPerToken)));
         expect(s[1]).to.be.bignumber.equal($AMPL(0));
         expect(s[2].add(s[4])).to.be.bignumber.equal(s[3]);
         expect(s[4]).to.be.bignumber.equal(`${ONE_YEAR}`);
@@ -157,7 +157,7 @@ describe('LockedPool', function () {
       it('should create a schedule', async function () {
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         const s = await dist.unlockSchedules.call(1);
-        expect(s[0]).to.be.bignumber.equal($AMPL(25));
+        expect(s[0]).to.be.bignumber.equal($AMPL(25).mul(new BN(InitialSharesPerToken)));
         expect(s[1]).to.be.bignumber.equal($AMPL(0));
         expect(s[2].add(s[4])).to.be.bignumber.equal(s[3]);
         expect(s[4]).to.be.bignumber.equal(`${ONE_YEAR}`);
@@ -187,7 +187,7 @@ describe('LockedPool', function () {
       it('should create a schedule', async function () {
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         const s = await dist.unlockSchedules.call(1);
-        expect(s[0]).to.be.bignumber.equal($AMPL(100));
+        expect(s[0]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
         expect(s[1]).to.be.bignumber.equal($AMPL(0));
         expect(s[2].add(s[4])).to.be.bignumber.equal(s[3]);
         expect(s[4]).to.be.bignumber.equal(`${ONE_YEAR}`);
@@ -224,8 +224,8 @@ describe('LockedPool', function () {
             await checkAprox(l.args.amount, 50);
             await checkAprox(l.args.total, 50);
             const s = await dist.unlockSchedules(0);
-            expect(s[0]).to.be.bignumber.equal($AMPL(100));
-            await checkAprox(s[1], 50);
+            expect(s[0]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
+            await checkAprox(s[1], 50 * InitialSharesPerToken);
           });
         });
 
@@ -289,8 +289,8 @@ describe('LockedPool', function () {
           await checkAprox(l.args.amount, 100);
           await checkAprox(l.args.total, 0);
           const s = await dist.unlockSchedules(0);
-          expect(s[0]).to.be.bignumber.equal($AMPL(100));
-          expect(s[1]).to.be.bignumber.equal($AMPL(100));
+          expect(s[0]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
+          expect(s[1]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
         });
       });
 
@@ -341,11 +341,11 @@ describe('LockedPool', function () {
         await checkAprox(l.args.amount, 70);
         await checkAprox(l.args.total, 130);
         const s1 = await dist.unlockSchedules(0);
-        expect(s1[0]).to.be.bignumber.equal($AMPL(100));
-        await checkAprox(s1[1], 60);
+        expect(s1[0]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
+        await checkAprox(s1[1], 60 * InitialSharesPerToken);
         const s2 = await dist.unlockSchedules(1);
-        expect(s2[0]).to.be.bignumber.equal($AMPL(100));
-        await checkAprox(s2[1], 10);
+        expect(s2[0]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
+        await checkAprox(s2[1], 10 * InitialSharesPerToken);
       });
       it('should continue linear the unlock', async function () {
         await dist.updateAccounting();

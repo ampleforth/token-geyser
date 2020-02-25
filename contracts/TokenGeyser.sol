@@ -422,7 +422,7 @@ contract TokenGeyser is IStaking, Ownable {
         uint256 lockedTokens = totalLocked();
         uint256 mintedLockedShares = (lockedTokens > 0)
             ? totalLockedShares.mul(amount).div(lockedTokens)
-            : amount;
+            : amount.mul(_initialSharesPerToken);
 
         UnlockSchedule memory schedule;
         schedule.initialLockedShares = mintedLockedShares;
