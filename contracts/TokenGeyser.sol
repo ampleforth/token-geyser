@@ -419,6 +419,9 @@ contract TokenGeyser is IStaking, Ownable {
         require(unlockSchedules.length < _maxUnlockSchedules,
             'TokenGeyser: reached maximum unlock schedules');
 
+        // Update lockedTokens amount before using it in computations after.
+        updateAccounting();
+
         uint256 lockedTokens = totalLocked();
         uint256 mintedLockedShares = (lockedTokens > 0)
             ? totalLockedShares.mul(amount).div(lockedTokens)
