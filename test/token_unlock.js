@@ -14,7 +14,7 @@ const {
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
 const TokenGeyser = contract.fromArtifact('TokenGeyser');
 
-const ONE_YEAR = 1 * 365 * 24 * 3600;
+const ONE_YEAR = 365 * 24 * 3600;
 const START_BONUS = 50;
 const BONUS_PERIOD = 86400;
 const InitialSharesPerToken = 10 ** 6;
@@ -114,14 +114,18 @@ describe('LockedPool', function () {
         await dist.lockTokens($AMPL(100), ONE_YEAR);
         checkAprox(await dist.totalLocked.call(), 100);
       });
-      it('should updated the locked pool balance', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)))
+      it('should updated the locked and unlocked pool balance', async function () {
+        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         checkAprox(await dist.totalLocked.call(), 100 * 0.9 + 50);
       });
-      it('should log TokensLocked', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)))
+      it('should log TokensUnlocked and TokensLocked', async function () {
+        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
+        expectEvent(r, 'TokensUnlocked', {
+          amount: $AMPL(100 * 0.1),
+          total: $AMPL(100 * 0.9)
+        });
         expectEvent(r, 'TokensLocked', {
           amount: $AMPL(50),
           total: $AMPL(100 * 0.9 + 50),
@@ -152,9 +156,13 @@ describe('LockedPool', function () {
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         checkAprox(await dist.totalLocked.call(), 250);
       });
-      it('should log TokensLocked', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)))
+      it('should log TokensUnlocked and TokensLocked', async function () {
+        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
+        expectEvent(r, 'TokensUnlocked', {
+          amount: $AMPL(200 * 0.1),
+          total: $AMPL(200 * 0.9)
+        });
         expectEvent(r, 'TokensLocked', {
           amount: $AMPL(50),
           total: $AMPL(50.0 + 200.0 * 0.9),
@@ -185,9 +193,13 @@ describe('LockedPool', function () {
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         checkAprox(await dist.totalLocked.call(), 100);
       });
-      it('should log TokensLocked', async function () {
-        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)))
+      it('should log TokensUnlocked and TokensLocked', async function () {
+        await time.increaseTo(initialTime.add(new BN(ONE_YEAR / 10)));
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
+        expectEvent(r, 'TokensUnlocked', {
+          amount: $AMPL(50 * 0.1),
+          total: $AMPL(50 * 0.9)
+        });
         expectEvent(r, 'TokensLocked', {
           amount: $AMPL(50),
           total: $AMPL(50 * 0.9 + 50),
@@ -335,6 +347,7 @@ describe('LockedPool', function () {
         await time.increaseTo((await time.latest()).add(new BN(ONE_YEAR / 10)));
       });
       it('should return the remaining unlock value', async function () {
+        // 10 from each schedule for the period of ONE_YEAR / 10
         await checkAvailableToUnlock(dist, 20);
       });
       it('should transfer tokens to unlocked pool', async function () {
