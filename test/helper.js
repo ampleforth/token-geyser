@@ -1,4 +1,7 @@
 const { BN } = require('@openzeppelin/test-helpers');
+const { promisify } = require('util');
+const { time } = require('@openzeppelin/test-helpers');
+const { web3 } = require('@openzeppelin/test-environment');
 const { expect } = require('chai');
 
 const PERC_DECIMALS = 2;
@@ -26,4 +29,21 @@ async function checkAprox (x, y, tolerance = 0.2) {
   expect(await x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
 }
 
-module.exports = { checkAprox, invokeRebase, $AMPL };
+async function setTimeForNextTransaction (target) {
+  if (!BN.isBN(target)) {
+    target = new BN(target);
+  }
+
+  const now = (await time.latest());
+
+  if (target.lt(now)) throw Error(`Cannot increase current time (${now}) to a moment in the past (${target})`);
+  const diff = target.sub(now);
+  await promisify(web3.currentProvider.send.bind(web3.currentProvider))({
+    jsonrpc: '2.0',
+    method: 'evm_increaseTime',
+    params: [diff.toNumber()],
+    id: new Date().getTime()
+  });
+}
+
+module.exports = {checkAprox, invokeRebase, $AMPL, setTimeForNextTransaction};
