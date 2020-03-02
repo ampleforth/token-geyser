@@ -343,7 +343,7 @@ describe('LockedPool', function () {
       beforeEach(async function () {
         await ampl.approve(dist.address, $AMPL(200));
         await dist.lockTokens($AMPL(100), ONE_YEAR);
-        await time.increaseTo((await time.latest()).add(new BN(ONE_YEAR / 2)));
+        await setTimeForNextTransaction((await time.latest()).add(new BN(ONE_YEAR / 2)));
         await dist.lockTokens($AMPL(100), ONE_YEAR);
         await time.increaseTo((await time.latest()).add(new BN(ONE_YEAR / 10)));
       });
