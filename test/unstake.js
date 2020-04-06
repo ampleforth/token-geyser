@@ -8,7 +8,8 @@ const chain = new BlockchainCaller(web3);
 const {
   $AMPL,
   invokeRebase,
-  checkAprox
+  checkAprox,
+  TimeController
 } = _require('/test/helper');
 
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
@@ -189,17 +190,21 @@ describe('unstaking', function () {
       // user stakes 50 ampls for 1/2 year, 50 ampls for 1/4 year, [50 ampls unlocked in this time ]
       // unstakes 30 ampls, gets 20% of the unlocked reward (10 ampl) ~ [30 * 0.25 / (50*0.25+50*0.5) * 50]
       // user's final balance is 40 ampl
+      const timeController = new TimeController();
       beforeEach(async function () {
         await dist.lockTokens($AMPL(100), ONE_YEAR);
+        // TODO: await timeController.advanceTime()
         await dist.stake($AMPL(50), [], { from: anotherAccount });
-        await time.increase(ONE_YEAR / 4);
+        await timeController.initialize();
+        await timeController.advanceTime(ONE_YEAR / 4);
         await dist.stake($AMPL(50), [], { from: anotherAccount });
-        await time.increase(ONE_YEAR / 4);
+        await timeController.advanceTime(ONE_YEAR / 4);
         await dist.updateAccounting({ from: anotherAccount });
         await checkAprox(totalRewardsFor(anotherAccount), 50);
       });
       it('should update the total staked and rewards', async function () {
         await dist.unstake($AMPL(30), [], { from: anotherAccount });
+        // TODO: await timeController.advanceTime()
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(70));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(70));
         await checkAprox(totalRewardsFor(anotherAccount), 40);
@@ -254,14 +259,18 @@ describe('unstaking', function () {
       // userA stakes 50 ampls for 3/4 year, userb stakes 50 ampl for 1/2 year, total unlocked 75 ampl
       // userA unstakes 30 ampls, gets 36% of the unlocked reward (27 ampl) ~ [30 * 0.75 / (50*0.75+50*0.5) * 75]
       // user's final balance is 57 ampl
+      const timeController = new TimeController();
       beforeEach(async function () {
         await dist.lockTokens($AMPL(100), ONE_YEAR);
+        // TODO: await timeController.advanceTime()
         await dist.stake($AMPL(50), [], { from: anotherAccount });
-        await time.increase(ONE_YEAR / 4);
+        await timeController.initialize();
+        await timeController.advanceTime(ONE_YEAR / 4);
         await dist.stake($AMPL(50), []);
-        await time.increase(ONE_YEAR / 2);
+        await timeController.advanceTime(ONE_YEAR / 2);
         await dist.updateAccounting({ from: anotherAccount });
-        await dist.updateAccounting();
+        // This will cause a timing issue
+        // await dist.updateAccounting();
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
         await checkAprox(totalRewardsFor(anotherAccount), 45);
         await checkAprox(totalRewardsFor(owner), 30);
