@@ -28,9 +28,9 @@ async function checkAprox (x, y, tolerance = (1.0 / 1000.0)) {
   expect(await x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
 }
 
-// function checkExact (x, y) {
-//   expect(x).to.be.bignumber.be.equal($AMPL(y));
-// }
+function checkExact (x, y) {
+  expect(x).to.be.bignumber.be.equal($AMPL(y));
+}
 
 class TimeController {
   async initialize () {
@@ -48,6 +48,7 @@ class TimeController {
 async function printMethodOutput (r) {
   console.log(r.logs);
 }
+
 async function printStatus (dist) {
   console.log('Total Locked: ', await dist.totalLocked.call().toString());
   console.log('Total UnLocked: ', await dist.totalUnlocked.call().toString());
@@ -85,4 +86,4 @@ async function setTimeForNextTransaction (target) {
   increaseTimeForNextTransaction(diff);
 }
 
-module.exports = { /* checkExact,*/ checkAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};
+module.exports = {checkExact, checkAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};

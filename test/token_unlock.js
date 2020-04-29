@@ -1,5 +1,5 @@
 const { contract, web3 } = require('@openzeppelin/test-environment');
-const { expectRevert, expectEvent, BN, time, constants } = require('@openzeppelin/test-helpers');
+const { expectRevert, BN, time, constants } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const _require = require('app-root-path').require;
@@ -97,7 +97,7 @@ describe('LockedPool', function () {
       });
       it('should log TokensLocked', async function () {
         const r = await dist.lockTokens($AMPL(100), ONE_YEAR);
-        l = r.logs.filter(l => l.event === 'TokensLocked')[0];
+        const l = r.logs.filter(l => l.event === 'TokensLocked')[0];
         await checkAprox(l.args.amount, 100);
         await checkAprox(l.args.total, 100);
         expect(l.args.durationSec).to.be.bignumber.equal(`${ONE_YEAR}`);
@@ -128,7 +128,7 @@ describe('LockedPool', function () {
         await timeController.advanceTime(ONE_YEAR / 10);
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
         // printMethodOutput(r);
-        l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
+        let l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
         await checkAprox(l.args.amount, 100 * 0.1);
         await checkAprox(l.args.total, 100 * 0.9);
 
@@ -136,7 +136,6 @@ describe('LockedPool', function () {
         await checkAprox(l.args.amount, 50);
         await checkAprox(l.args.total, 100 * 0.9 + 50);
         expect(l.args.durationSec).to.be.bignumber.equal(`${ONE_YEAR}`);
-
       });
       it('should create a schedule', async function () {
         await timeController.advanceTime(ONE_YEAR / 10);
@@ -180,7 +179,7 @@ describe('LockedPool', function () {
       it('should log TokensUnlocked and TokensLocked', async function () {
         await timeController.advanceTime(ONE_YEAR / 10);
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
-        l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
+        let l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
         checkAprox(l.amount, 200 * 0.1);
         checkAprox(l.total, 200 * 0.9);
 
@@ -188,7 +187,6 @@ describe('LockedPool', function () {
         checkAprox(l.amount, 50);
         checkAprox(l.total, 50.0 + 200.0 * 0.9);
         expect(l.args.durationSec).to.be.bignumber.equal(`${ONE_YEAR}`);
-
       });
       it('should create a schedule', async function () {
         await timeController.advanceTime(ONE_YEAR / 10);
@@ -219,7 +217,7 @@ describe('LockedPool', function () {
         currentTime = currentTime.add(new BN(ONE_YEAR / 10));
         await setTimeForNextTransaction(currentTime);
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
-        l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
+        let l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
         await checkAprox(l.args.amount, 50 * 0.1);
         await checkAprox(l.args.total, 50 * 0.9);
 
