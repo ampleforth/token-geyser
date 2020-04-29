@@ -1,5 +1,5 @@
 const { contract, web3 } = require('@openzeppelin/test-environment');
-const { expectRevert, expectEvent, constants } = require('@openzeppelin/test-helpers');
+const { expectRevert, expectEvent, BN, constants } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const _require = require('app-root-path').require;
@@ -80,14 +80,14 @@ describe('staking', function () {
 
     describe('when totalStaked=0', function () {
       beforeEach(async function () {
-        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
+        // expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
         await ampl.approve(dist.address, $AMPL(100));
       });
       it('should updated the total staked', async function () {
         await dist.stake($AMPL(100), []);
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(100));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100 * InitialSharesPerToken));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
       });
       it('should log Staked', async function () {
         const r = await dist.stake($AMPL(100), []);
@@ -112,7 +112,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(200));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(50));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(150));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(200 * InitialSharesPerToken));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(200).mul(new BN(InitialSharesPerToken)));
       });
     });
 
@@ -131,7 +131,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(250));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(150));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(125 * InitialSharesPerToken));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(125).mul(new BN(InitialSharesPerToken)));
       });
     });
 
@@ -168,7 +168,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(175));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(25));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(150));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(350 * InitialSharesPerToken));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(350).mul(new BN(InitialSharesPerToken)));
       });
     });
   });
@@ -197,7 +197,7 @@ describe('staking', function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(100));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(0));
-        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100 * InitialSharesPerToken));
+        expect(await dist.totalStakingShares.call()).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
       });
       it('should log Staked', async function () {
         const r = await dist.stakeFor(anotherAccount, $AMPL(100), []);

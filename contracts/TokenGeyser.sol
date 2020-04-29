@@ -32,6 +32,7 @@ contract TokenGeyser is IStaking, Ownable {
     event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
     event TokensClaimed(address indexed user, uint256 amount);
     event TokensLocked(uint256 amount, uint256 durationSec, uint256 total);
+    // Unlocked tokens, Total locked tokens
     event TokensUnlocked(uint256 amount, uint256 total);
 
     TokenPool private _stakingPool;
@@ -429,6 +430,7 @@ contract TokenGeyser is IStaking, Ownable {
 
         UnlockSchedule memory schedule;
         schedule.initialLockedShares = mintedLockedShares;
+//        schedule.unlockedShares=0;
         schedule.lastUnlockTimestampSec = now;
         schedule.endAtSec = now.add(durationSec);
         schedule.durationSec = durationSec;

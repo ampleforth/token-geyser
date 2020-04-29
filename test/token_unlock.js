@@ -10,7 +10,9 @@ const {
   invokeRebase,
   checkAprox,
   setTimeForNextTransaction,
-  TimeController
+  TimeController,
+  printMethodOutput,
+  printStatus
 } = _require('/test/helper');
 
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
@@ -38,6 +40,7 @@ async function setupContractAndAccounts () {
 async function checkAvailableToUnlock (dist, v) {
   const u = await dist.totalUnlocked.call();
   const r = await dist.updateAccounting.call();
+  console.log('Total unlocked: ', u.toString(), 'total unlocked after: ', r[1].toString());
   await checkAprox(r[1].sub(u), v);
 }
 
@@ -109,23 +112,23 @@ describe('LockedPool', function () {
     });
 
     describe('when totalLocked>0', function () {
-      let currentTime;
+      const timeController = new TimeController();
       beforeEach(async function () {
         await ampl.approve(dist.address, $AMPL(150));
         await dist.lockTokens($AMPL(100), ONE_YEAR);
-        currentTime = await time.latest();
+        await timeController.initialize();
         checkAprox(await dist.totalLocked.call(), 100);
       });
       it('should updated the locked and unlocked pool balance', async function () {
-        currentTime = currentTime.add(new BN(ONE_YEAR / 10));
-        await setTimeForNextTransaction(currentTime);
-        await dist.lockTokens($AMPL(50), ONE_YEAR);
+        await timeController.advanceTime(ONE_YEAR / 10);
+        const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
+        printMethodOutput(r);
         checkAprox(await dist.totalLocked.call(), 100 * 0.9 + 50);
       });
       it('should log TokensUnlocked and TokensLocked', async function () {
-        currentTime = currentTime.add(new BN(ONE_YEAR / 10));
-        await setTimeForNextTransaction(currentTime);
+        await timeController.advanceTime(ONE_YEAR / 10);
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
+        printMethodOutput(r);
         expectEvent(r, 'TokensUnlocked', {
           amount: $AMPL(100 * 0.1),
           total: $AMPL(100 * 0.9)
@@ -137,17 +140,29 @@ describe('LockedPool', function () {
         });
       });
       it('should create a schedule', async function () {
+        //         schedule.initialLockedShares = mintedLockedShares;
+        // //        schedule.unlockedShares=0;
+        //         schedule.lastUnlockTimestampSec = now;
+        //         schedule.endAtSec = now.add(durationSec);
+        //         schedule.durationSec = durationSec;
+
+        // uint256 mintedLockedShares = (lockedTokens > 0)
+        //   ? totalLockedShares.mul(amount).div(lockedTokens)
+        //   : amount.mul(_initialSharesPerToken);
+        // log.console(await dist.totalLockedShares.call().toString());
+        // log.console(await dist.lockedTokens.call().toString());
+        await timeController.advanceTime(ONE_YEAR / 10);
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         const s = await dist.unlockSchedules.call(1);
         // struct UnlockSchedule {
-        //   uint256 initialLockedShares;
-        //   uint256 unlockedShares;
-        //   uint256 lastUnlockTimestampSec;
-        //   uint256 endAtSec;
-        //   uint256 durationSec;
+        // 0   uint256 initialLockedShares;
+        // 1   uint256 unlockedShares;
+        // 2   uint256 lastUnlockTimestampSec;
+        // 3   uint256 endAtSec;
+        // 4   uint256 durationSec;
         // }
-        expect(s[0]).to.be.bignumber.equal($AMPL(50).mul(new BN(InitialSharesPerToken)));
-        expect(s[1]).to.be.bignumber.equal($AMPL(0));
+        checkAprox(s[0], 50 * InitialSharesPerToken);
+        checkAprox(s[1], 0);
         expect(s[2].add(s[4])).to.be.bignumber.equal(s[3]);
         expect(s[4]).to.be.bignumber.equal(`${ONE_YEAR}`);
         expect(await dist.unlockScheduleCount.call()).to.be.bignumber.equal('2');
@@ -155,22 +170,27 @@ describe('LockedPool', function () {
     });
 
     describe('when totalLocked>0, rebase increases supply', function () {
-      let currentTime;
+      const timeController = new TimeController();
       beforeEach(async function () {
         await ampl.approve(dist.address, $AMPL(150));
         await dist.lockTokens($AMPL(100), ONE_YEAR);
-        currentTime = await time.latest();
+        await timeController.initialize();
         checkAprox(await dist.totalLocked.call(), 100);
         await invokeRebase(ampl, 100);
       });
       it('should updated the locked pool balance', async function () {
-        currentTime = currentTime.add(new BN(ONE_YEAR / 10));
-        await setTimeForNextTransaction(currentTime);
+        await timeController.advanceTime(ONE_YEAR / 10);
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         checkAprox(await dist.totalLocked.call(), 50 + 200 * 0.9);
       });
+      it('should updated the locked pool balance', async function () {
+        await timeController.advanceTime(ONE_YEAR / 10);
+        const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
+        printMethodOutput(r);
+        checkAprox(await dist.totalLocked.call(), 50 + 200 * 0.9);
+      });
       it('should log TokensUnlocked and TokensLocked', async function () {
-        await setTimeForNextTransaction(currentTime.add(new BN(ONE_YEAR / 10)));
+        await timeController.advanceTime(ONE_YEAR / 10);
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
         expectEvent(r, 'TokensUnlocked', {
           amount: $AMPL(200 * 0.1),
@@ -183,12 +203,11 @@ describe('LockedPool', function () {
         });
       });
       it('should create a schedule', async function () {
-        currentTime = currentTime.add(new BN(ONE_YEAR / 10));
-        await setTimeForNextTransaction(currentTime);
+        await timeController.advanceTime(ONE_YEAR / 10);
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         const s = await dist.unlockSchedules.call(1);
-        expect(s[0]).to.be.bignumber.equal($AMPL(25).mul(new BN(InitialSharesPerToken)));
-        expect(s[1]).to.be.bignumber.equal($AMPL(0));
+        checkAprox(s[0], 25 * InitialSharesPerToken);
+        checkAprox(s[1], 0);
         expect(s[2].add(s[4])).to.be.bignumber.equal(s[3]);
         expect(s[4]).to.be.bignumber.equal(`${ONE_YEAR}`);
         expect(await dist.unlockScheduleCount.call()).to.be.bignumber.equal('2');
@@ -225,6 +244,7 @@ describe('LockedPool', function () {
       it('should create a schedule', async function () {
         await dist.lockTokens($AMPL(50), ONE_YEAR);
         const s = await dist.unlockSchedules.call(1);
+        // TODO: Shares computation issue
         expect(s[0]).to.be.bignumber.equal($AMPL(100).mul(new BN(InitialSharesPerToken)));
         expect(s[1]).to.be.bignumber.equal($AMPL(0));
         expect(s[2].add(s[4])).to.be.bignumber.equal(s[3]);
@@ -280,7 +300,9 @@ describe('LockedPool', function () {
             await checkAvailableToUnlock(dist, 100);
           });
           it('should transfer tokens to unlocked pool', async function () {
-            await dist.updateAccounting();
+            printStatus(dist);
+            const r = await dist.updateAccounting();
+            printMethodOutput(r);
             await checkAprox(dist.totalLocked.call(), 100);
             await checkAprox(dist.totalUnlocked.call(), 100);
             await checkAvailableToUnlock(dist, 0);
@@ -298,7 +320,8 @@ describe('LockedPool', function () {
           it('should transfer tokens to unlocked pool', async function () {
             expect(await dist.totalLocked.call()).to.be.bignumber.equal($AMPL(50));
             expect(await dist.totalUnlocked.call()).to.be.bignumber.equal($AMPL(0));
-            await dist.updateAccounting();
+            const r = await dist.updateAccounting();
+            printMethodOutput(r);
             await checkAprox(dist.totalLocked.call(), 25);
             await checkAprox(dist.totalUnlocked.call(), 25);
             await checkAvailableToUnlock(dist, 0);
@@ -357,22 +380,21 @@ describe('LockedPool', function () {
     });
 
     describe('multi schedule', function () {
-      let currentTime;
+      const timeController = new TimeController();
       beforeEach(async function () {
         await ampl.approve(dist.address, $AMPL(200));
         await dist.lockTokens($AMPL(100), ONE_YEAR);
-        currentTime = await time.latest();
-        currentTime = currentTime.add(new BN(ONE_YEAR / 2));
-        await setTimeForNextTransaction(currentTime);
+        await timeController.initialize();
+        await timeController.advanceTime(ONE_YEAR / 2);
         await dist.lockTokens($AMPL(100), ONE_YEAR);
-        currentTime = currentTime.add(new BN(ONE_YEAR / 10));
-        await setTimeForNextTransaction(currentTime);
+        await timeController.advanceTime(ONE_YEAR / 10);
       });
       it('should return the remaining unlock value', async function () {
         await time.advanceBlock();
         expect(await dist.totalLocked()).to.be.bignumber.equal($AMPL(150));
         expect(await dist.totalUnlocked()).to.be.bignumber.equal($AMPL(50));
         // 10 from each schedule for the period of ONE_YEAR / 10
+        // TODO: Shares computation issue
         await checkAvailableToUnlock(dist, 20);
       });
       it('should transfer tokens to unlocked pool', async function () {
@@ -383,9 +405,14 @@ describe('LockedPool', function () {
       });
       it('should log TokensUnlocked and update state', async function () {
         const r = await dist.updateAccounting();
+        printMethodOutput(r);
         const l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
+        // Amount unlocked
+        // console.log(l)
         expect(l.args.amount).to.be.bignumber.equal($AMPL(20));
+        // Total Locked
         expect(l.args.total).to.be.bignumber.equal($AMPL(130));
+        // TODO: Shares computation issue
         await checkAprox(l.args.amount, 20);
         await checkAprox(l.args.total, 130);
         const s1 = await dist.unlockSchedules(0);
@@ -396,16 +423,17 @@ describe('LockedPool', function () {
         await checkAprox(s2[1], 10 * InitialSharesPerToken);
       });
       it('should continue linear the unlock', async function () {
-        await dist.updateAccounting();
-        currentTime = currentTime.add(new BN(ONE_YEAR / 5));
-        await setTimeForNextTransaction(currentTime);
-        await dist.updateAccounting();
+        let r = await dist.updateAccounting();
+        printMethodOutput(r);
+        await timeController.advanceTime(ONE_YEAR / 5);
+        r = await dist.updateAccounting();
+        printMethodOutput(r);
         await checkAprox(dist.totalLocked.call(), 90);
         await checkAprox(dist.totalUnlocked.call(), 110);
         await checkAvailableToUnlock(dist, 0);
-        currentTime = currentTime.add(new BN(ONE_YEAR / 5));
-        await setTimeForNextTransaction(currentTime);
-        await dist.updateAccounting();
+        await timeController.advanceTime(ONE_YEAR / 5);
+        r = await dist.updateAccounting();
+        printMethodOutput(r);
         await checkAprox(dist.totalLocked.call(), 50);
         await checkAprox(dist.totalUnlocked.call(), 150);
         await checkAvailableToUnlock(dist, 0);

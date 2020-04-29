@@ -8,10 +8,10 @@ const PERC_DECIMALS = 2;
 const AMPL_DECIMALS = 9;
 
 function $AMPL (x) {
-  const ordinate = new BN(10 ** AMPL_DECIMALS);
-  return new BN(parseInt(x)).mul(ordinate);
+  return new BN(x * (10 ** AMPL_DECIMALS));
 }
 
+// Perc has to be a whole number
 async function invokeRebase (ampl, perc) {
   const s = await ampl.totalSupply.call();
   const ordinate = 10 ** PERC_DECIMALS;
@@ -20,14 +20,17 @@ async function invokeRebase (ampl, perc) {
   await ampl.rebase(1, s_);
 }
 
-async function checkAprox (x, y, tolerance = 0) {
-  const ordinate = 10 ** PERC_DECIMALS;
-  const t_ = new BN(parseInt(tolerance * ordinate));
-  const delta = new BN($AMPL(1)).mul(t_).div(new BN(ordinate));
+// tolerance is the fraction of 1 AMPL to be tolerated as a deviation from x
+async function checkAprox (x, y, tolerance = (1.0 / 100000.0)) {
+  const delta = new BN(parseInt(10 ** AMPL_DECIMALS) * tolerance);
   const upper = $AMPL(y).add(delta);
   const lower = $AMPL(y).sub(delta);
   expect(await x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
 }
+
+// function checkExact (x, y) {
+//   expect(x).to.be.bignumber.be.equal($AMPL(y));
+// }
 
 class TimeController {
   async initialize () {
@@ -40,6 +43,25 @@ class TimeController {
   async executeEmptyBlock () {
     await time.advanceBlock();
   }
+}
+
+async function printMethodOutput (r) {
+  console.log(r.logs);
+}
+async function printStatus (dist) {
+  console.log('Total Locked: ', await dist.totalLocked.call().toString());
+  console.log('Total UnLocked: ', await dist.totalUnlocked.call().toString());
+  const c = (await dist.unlockScheduleCount.call()).toNumber();
+  console.log(await dist.unlockScheduleCount.call().toString());
+
+  for (let i = 0; i < c; i++) {
+    console.log(await dist.unlockSchedules.call(i).toString());
+  }
+  // await dist.totalLocked.call()
+  // await dist.totalUnlocked.call()
+  // await dist.unlockScheduleCount.call()
+  // dist.updateAccounting.call() // and all the logs
+  // dist.unlockSchedules.call(1)
 }
 
 async function increaseTimeForNextTransaction (diff) {
@@ -63,4 +85,4 @@ async function setTimeForNextTransaction (target) {
   increaseTimeForNextTransaction(diff);
 }
 
-module.exports = {checkAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController};
+module.exports = { /* checkExact,*/ checkAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};

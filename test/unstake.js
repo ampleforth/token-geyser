@@ -193,27 +193,29 @@ describe('unstaking', function () {
       const timeController = new TimeController();
       beforeEach(async function () {
         await dist.lockTokens($AMPL(100), ONE_YEAR);
-        // TODO: await timeController.advanceTime()
+        await timeController.initialize();
+        await timeController.advanceTime(ONE_YEAR / 100);
         await dist.stake($AMPL(50), [], { from: anotherAccount });
         await timeController.initialize();
         await timeController.advanceTime(ONE_YEAR / 4);
         await dist.stake($AMPL(50), [], { from: anotherAccount });
         await timeController.advanceTime(ONE_YEAR / 4);
         await dist.updateAccounting({ from: anotherAccount });
-        await checkAprox(totalRewardsFor(anotherAccount), 50);
+      });
+      it('checkTotalRewards', async function () {
+        await checkAprox(totalRewardsFor(anotherAccount), 51);
       });
       it('should update the total staked and rewards', async function () {
         await dist.unstake($AMPL(30), [], { from: anotherAccount });
-        // TODO: await timeController.advanceTime()
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(70));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(70));
-        await checkAprox(totalRewardsFor(anotherAccount), 40);
+        await checkAprox(totalRewardsFor(anotherAccount), 40.8);
       });
       it('should transfer back staked tokens + rewards', async function () {
         const _b = await ampl.balanceOf.call(anotherAccount);
         await dist.unstake($AMPL(30), [], { from: anotherAccount });
         const b = await ampl.balanceOf.call(anotherAccount);
-        await checkAprox(b.sub(_b), 40);
+        await checkAprox(b.sub(_b), 40.2);
       });
     });
 
@@ -262,7 +264,8 @@ describe('unstaking', function () {
       const timeController = new TimeController();
       beforeEach(async function () {
         await dist.lockTokens($AMPL(100), ONE_YEAR);
-        // TODO: await timeController.advanceTime()
+        await timeController.initialize();
+        await timeController.advanceTime(ONE_YEAR / 100);
         await dist.stake($AMPL(50), [], { from: anotherAccount });
         await timeController.initialize();
         await timeController.advanceTime(ONE_YEAR / 4);
@@ -271,23 +274,28 @@ describe('unstaking', function () {
         await dist.updateAccounting({ from: anotherAccount });
         // This will cause a timing issue
         // await dist.updateAccounting();
+        // expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
+        // await checkAprox(totalRewardsFor(anotherAccount), 45.6);
+        // await checkAprox(totalRewardsFor(owner), 30);
+      });
+      it('checkTotalRewards', async function () {
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(100));
-        await checkAprox(totalRewardsFor(anotherAccount), 45);
-        await checkAprox(totalRewardsFor(owner), 30);
+        await checkAprox(totalRewardsFor(anotherAccount), 45.6);
+        await checkAprox(totalRewardsFor(owner), 30.4);
       });
       it('should update the total staked and rewards', async function () {
         await dist.unstake($AMPL(30), [], { from: anotherAccount });
         expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(70));
         expect(await dist.totalStakedFor.call(anotherAccount)).to.be.bignumber.equal($AMPL(20));
         expect(await dist.totalStakedFor.call(owner)).to.be.bignumber.equal($AMPL(50));
-        await checkAprox(totalRewardsFor(anotherAccount), 18);
-        await checkAprox(totalRewardsFor(owner), 30);
+        await checkAprox(totalRewardsFor(anotherAccount), 18.24);
+        await checkAprox(totalRewardsFor(owner), 30.4);
       });
       it('should transfer back staked tokens + rewards', async function () {
         const _b = await ampl.balanceOf.call(anotherAccount);
         await dist.unstake($AMPL(30), [], { from: anotherAccount });
         const b = await ampl.balanceOf.call(anotherAccount);
-        await checkAprox(b.sub(_b), 57);
+        await checkAprox(b.sub(_b), 57.36);
       });
     });
 
