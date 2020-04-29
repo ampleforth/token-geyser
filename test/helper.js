@@ -21,7 +21,7 @@ async function invokeRebase (ampl, perc) {
 }
 
 // tolerance is the fraction of 1 AMPL to be tolerated as a deviation from x
-async function checkAprox (x, y, tolerance = (1.0 / 100000.0)) {
+async function checkAprox (x, y, tolerance = (1.0 / 1000.0)) {
   const delta = new BN(parseInt(10 ** AMPL_DECIMALS) * tolerance);
   const upper = $AMPL(y).add(delta);
   const lower = $AMPL(y).sub(delta);

@@ -80,7 +80,7 @@ describe('staking', function () {
 
     describe('when totalStaked=0', function () {
       beforeEach(async function () {
-        // expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
+        expect(await dist.totalStaked.call()).to.be.bignumber.equal($AMPL(0));
         await ampl.approve(dist.address, $AMPL(100));
       });
       it('should updated the total staked', async function () {
