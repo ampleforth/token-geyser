@@ -20,12 +20,19 @@ async function invokeRebase (ampl, perc) {
   await ampl.rebase(1, s_);
 }
 
-// tolerance is the fraction of 1 AMPL to be tolerated as a deviation from x
-async function checkAprox (x, y, tolerance = (1.0 / 1000.0)) {
-  const delta = new BN(parseInt(10 ** AMPL_DECIMALS) * tolerance);
-  const upper = $AMPL(y).add(delta);
-  const lower = $AMPL(y).sub(delta);
-  expect(await x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
+function checkAmplAprox (x, y) {
+  checkAprox(x, $AMPL(y), 10 ** 4);
+}
+
+async function checkSharesAprox (x, y) {
+  checkAprox(x, y, 10 ** 6);
+}
+
+function checkAprox (x, y, delta_) {
+  const delta = new BN(parseInt(delta_));
+  const upper = y.add(delta);
+  const lower = y.sub(delta);
+  expect(x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
 }
 
 function checkExact (x, y) {
@@ -86,4 +93,4 @@ async function setTimeForNextTransaction (target) {
   increaseTimeForNextTransaction(diff);
 }
 
-module.exports = {checkExact, checkAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};
+module.exports = {checkExact, checkAprox, checkAmplAprox, checkSharesAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};
