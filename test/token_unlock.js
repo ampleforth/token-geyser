@@ -41,7 +41,7 @@ async function setupContractAndAccounts () {
 async function checkAvailableToUnlock (dist, v) {
   const u = await dist.totalUnlocked.call();
   const r = await dist.updateAccounting.call();
-  console.log('Total unlocked: ', u.toString(), 'total unlocked after: ', r[1].toString());
+  // console.log('Total unlocked: ', u.toString(), 'total unlocked after: ', r[1].toString());
   checkAmplAprox(r[1].sub(u), v);
 }
 

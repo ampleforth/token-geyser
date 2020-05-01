@@ -21,10 +21,10 @@ async function invokeRebase (ampl, perc) {
 }
 
 function checkAmplAprox (x, y) {
-  checkAprox(x, $AMPL(y), 10 ** 4);
+  checkAprox(x, $AMPL(y), 10 ** 6);
 }
 
-async function checkSharesAprox (x, y) {
+function checkSharesAprox (x, y) {
   checkAprox(x, y, 10 ** 6);
 }
 
@@ -49,6 +49,26 @@ class TimeController {
   }
   async executeEmptyBlock () {
     await time.advanceBlock();
+  }
+  async executeAsBlock (Transactions) {
+    await this.pauseTime();
+    Transactions();
+    await this.resumeTime();
+    await time.advanceBlock();
+  }
+  async pauseTime () {
+    return promisify(web3.currentProvider.send.bind(web3.currentProvider))({
+      jsonrpc: '2.0',
+      method: 'miner_stop',
+      id: new Date().getTime(),
+    });
+  }
+  async resumeTime () {
+    return promisify(web3.currentProvider.send.bind(web3.currentProvider))({
+      jsonrpc: '2.0',
+      method: 'miner_start',
+      id: new Date().getTime(),
+    });
   }
 }
 
