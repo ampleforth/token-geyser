@@ -35,10 +35,6 @@ function checkAprox (x, y, delta_) {
   expect(x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
 }
 
-function checkExact (x, y) {
-  expect(x).to.be.bignumber.be.equal($AMPL(y));
-}
-
 class TimeController {
   async initialize () {
     this.currentTime = await time.latest();
@@ -85,6 +81,7 @@ async function printStatus (dist) {
   for (let i = 0; i < c; i++) {
     console.log(await dist.unlockSchedules.call(i).toString());
   }
+  // TODO: Print the following variables:
   // await dist.totalLocked.call()
   // await dist.totalUnlocked.call()
   // await dist.unlockScheduleCount.call()
