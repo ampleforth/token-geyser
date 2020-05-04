@@ -313,13 +313,12 @@ describe('unstaking', function () {
       // user's final balance is 14545 ampl
       // userb unstakes 8000 ampls, gets the 10955 ampl
       const timeController = new TimeController();
-      let rewardsAnotherAccount = 50000.0/11.0;
-      let rewardsOwner = 32500.0/11.0;
+      const rewardsAnotherAccount = 50000.0 / 11.0;
+      const rewardsOwner = 32500.0 / 11.0;
       beforeEach(async function () {
-        await timeController.executeAsBlock(function()
-        {
-        dist.lockTokens($AMPL(10000), ONE_YEAR);
-        dist.stake($AMPL(5000), [], { from: anotherAccount });
+        await timeController.executeAsBlock(function () {
+          dist.lockTokens($AMPL(10000), ONE_YEAR);
+          dist.stake($AMPL(5000), [], { from: anotherAccount });
         });
         await timeController.initialize();
         await timeController.advanceTime(ONE_YEAR / 4);

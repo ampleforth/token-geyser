@@ -56,14 +56,14 @@ class TimeController {
     return promisify(web3.currentProvider.send.bind(web3.currentProvider))({
       jsonrpc: '2.0',
       method: 'miner_stop',
-      id: new Date().getTime(),
+      id: new Date().getTime()
     });
   }
   async resumeTime () {
     return promisify(web3.currentProvider.send.bind(web3.currentProvider))({
       jsonrpc: '2.0',
       method: 'miner_start',
-      id: new Date().getTime(),
+      id: new Date().getTime()
     });
   }
 }
@@ -110,4 +110,4 @@ async function setTimeForNextTransaction (target) {
   increaseTimeForNextTransaction(diff);
 }
 
-module.exports = {checkExact, checkAprox, checkAmplAprox, checkSharesAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};
+module.exports = {checkAmplAprox, checkSharesAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};

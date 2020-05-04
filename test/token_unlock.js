@@ -11,9 +11,7 @@ const {
   checkAmplAprox,
   checkSharesAprox,
   setTimeForNextTransaction,
-  TimeController,
-  printMethodOutput,
-  printStatus
+  TimeController
 } = _require('/test/helper');
 
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
@@ -121,14 +119,13 @@ describe('LockedPool', function () {
       });
       it('should updated the locked and unlocked pool balance', async function () {
         await timeController.advanceTime(ONE_YEAR / 10);
-        const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
-        // printMethodOutput(r);
+        await dist.lockTokens($AMPL(50), ONE_YEAR);
         checkAmplAprox(await dist.totalLocked.call(), 100 * 0.9 + 50);
       });
       it('should log TokensUnlocked and TokensLocked', async function () {
         await timeController.advanceTime(ONE_YEAR / 10);
         const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
-        // printMethodOutput(r);
+
         let l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
         checkAmplAprox(l.args.amount, 100 * 0.1);
         checkAmplAprox(l.args.total, 100 * 0.9);
@@ -173,8 +170,8 @@ describe('LockedPool', function () {
       });
       it('should updated the locked pool balance', async function () {
         await timeController.advanceTime(ONE_YEAR / 10);
-        const r = await dist.lockTokens($AMPL(50), ONE_YEAR);
-        // printMethodOutput(r);
+        await dist.lockTokens($AMPL(50), ONE_YEAR);
+
         checkAmplAprox(await dist.totalLocked.call(), 50 + 200 * 0.9);
       });
       it('should log TokensUnlocked and TokensLocked', async function () {
@@ -287,8 +284,8 @@ describe('LockedPool', function () {
           });
           it('should transfer tokens to unlocked pool', async function () {
             // printStatus(dist);
-            const r = await dist.updateAccounting();
-            // printMethodOutput(r);
+            await dist.updateAccounting();
+
             checkAmplAprox(await dist.totalLocked.call(), 100);
             checkAmplAprox(await dist.totalUnlocked.call(), 100);
             await checkAvailableToUnlock(dist, 0);
@@ -306,8 +303,8 @@ describe('LockedPool', function () {
           it('should transfer tokens to unlocked pool', async function () {
             expect(await dist.totalLocked.call()).to.be.bignumber.equal($AMPL(50));
             expect(await dist.totalUnlocked.call()).to.be.bignumber.equal($AMPL(0));
-            const r = await dist.updateAccounting();
-            // printMethodOutput(r);
+            await dist.updateAccounting();
+
             checkAmplAprox(await dist.totalLocked.call(), 25);
             checkAmplAprox(await dist.totalUnlocked.call(), 25);
             await checkAvailableToUnlock(dist, 0);
@@ -391,7 +388,7 @@ describe('LockedPool', function () {
       });
       it('should log TokensUnlocked and update state', async function () {
         const r = await dist.updateAccounting();
-        // printMethodOutput(r);
+
         const l = r.logs.filter(l => l.event === 'TokensUnlocked')[0];
         checkAmplAprox(l.args.amount, 20);
         checkAmplAprox(l.args.total, 130);
@@ -404,17 +401,16 @@ describe('LockedPool', function () {
         checkSharesAprox(s2[1], $AMPL(10).mul(new BN(InitialSharesPerToken)));
       });
       it('should continue linear the unlock', async function () {
-        let r = await dist.updateAccounting();
-        // printMethodOutput(r);
+        await dist.updateAccounting();
         await timeController.advanceTime(ONE_YEAR / 5);
-        r = await dist.updateAccounting();
-        // printMethodOutput(r);
+        await dist.updateAccounting();
+
         checkAmplAprox(await dist.totalLocked.call(), 90);
         checkAmplAprox(await dist.totalUnlocked.call(), 110);
         await checkAvailableToUnlock(dist, 0);
         await timeController.advanceTime(ONE_YEAR / 5);
-        r = await dist.updateAccounting();
-        // printMethodOutput(r);
+        await dist.updateAccounting();
+
         checkAmplAprox(await dist.totalLocked.call(), 50);
         checkAmplAprox(await dist.totalUnlocked.call(), 150);
         await checkAvailableToUnlock(dist, 0);
