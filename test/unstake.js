@@ -152,11 +152,12 @@ describe('unstaking', function () {
       // unstakes 250 ampls, gets .5 * .75 * 1000 ampls
       // user's final balance is 625 ampl, (250 remains staked), eligible rewards (375 ampl)
       const timeController = new TimeController();
+      const ONE_HOUR = 3600;
       beforeEach(async function () {
-        await dist.lockTokens($AMPL(1000), 1 * 60 * 60);
+        await dist.lockTokens($AMPL(1000), ONE_HOUR);
         timeController.initialize();
         await dist.stake($AMPL(500), [], { from: anotherAccount });
-        await timeController.advanceTime(12 * 60 * 60);
+        await timeController.advanceTime(12 * ONE_HOUR);
         await dist.updateAccounting({ from: anotherAccount });
         checkAmplAprox(await totalRewardsFor(anotherAccount), 1000);
       });

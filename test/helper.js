@@ -25,7 +25,7 @@ function checkAmplAprox (x, y) {
 }
 
 function checkSharesAprox (x, y) {
-  checkAprox(x, y, 10 ** 6);
+  checkAprox(x, y, 10 ** 12);
 }
 
 function checkAprox (x, y, delta_) {

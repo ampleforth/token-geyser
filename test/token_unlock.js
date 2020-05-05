@@ -374,8 +374,8 @@ describe('LockedPool', function () {
       });
       it('should return the remaining unlock value', async function () {
         await time.advanceBlock();
-        expect(await dist.totalLocked()).to.be.bignumber.equal($AMPL(150));
-        expect(await dist.totalUnlocked()).to.be.bignumber.equal($AMPL(50));
+        expect(await dist.totalLocked.call()).to.be.bignumber.equal($AMPL(150));
+        expect(await dist.totalUnlocked.call()).to.be.bignumber.equal($AMPL(50));
         // 10 from each schedule for the period of ONE_YEAR / 10
 
         await checkAvailableToUnlock(dist, 20);
