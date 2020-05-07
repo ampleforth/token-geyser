@@ -8,10 +8,10 @@ const PERC_DECIMALS = 2;
 const AMPL_DECIMALS = 9;
 
 function $AMPL (x) {
-  const ordinate = new BN(10 ** AMPL_DECIMALS);
-  return new BN(parseInt(x)).mul(ordinate);
+  return new BN(x * (10 ** AMPL_DECIMALS));
 }
 
+// Perc has to be a whole number
 async function invokeRebase (ampl, perc) {
   const s = await ampl.totalSupply.call();
   const ordinate = 10 ** PERC_DECIMALS;
@@ -20,13 +20,82 @@ async function invokeRebase (ampl, perc) {
   await ampl.rebase(1, s_);
 }
 
-async function checkAprox (x, y, tolerance = 0.2) {
-  const ordinate = 10 ** PERC_DECIMALS;
-  const t_ = new BN(parseInt(tolerance * ordinate));
-  const delta = new BN($AMPL(1)).mul(t_).div(new BN(ordinate));
-  const upper = $AMPL(y).add(delta);
-  const lower = $AMPL(y).sub(delta);
-  expect(await x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
+function checkAmplAprox (x, y) {
+  checkAprox(x, $AMPL(y), 10 ** 6);
+}
+
+function checkSharesAprox (x, y) {
+  checkAprox(x, y, 10 ** 12);
+}
+
+function checkAprox (x, y, delta_) {
+  const delta = new BN(parseInt(delta_));
+  const upper = y.add(delta);
+  const lower = y.sub(delta);
+  expect(x).to.be.bignumber.at.least(lower).and.bignumber.at.most(upper);
+}
+
+class TimeController {
+  async initialize () {
+    this.currentTime = await time.latest();
+  }
+  async advanceTime (seconds) {
+    this.currentTime = this.currentTime.add(new BN(seconds));
+    await setTimeForNextTransaction(this.currentTime);
+  }
+  async executeEmptyBlock () {
+    await time.advanceBlock();
+  }
+  async executeAsBlock (Transactions) {
+    await this.pauseTime();
+    Transactions();
+    await this.resumeTime();
+    await time.advanceBlock();
+  }
+  async pauseTime () {
+    return promisify(web3.currentProvider.send.bind(web3.currentProvider))({
+      jsonrpc: '2.0',
+      method: 'miner_stop',
+      id: new Date().getTime()
+    });
+  }
+  async resumeTime () {
+    return promisify(web3.currentProvider.send.bind(web3.currentProvider))({
+      jsonrpc: '2.0',
+      method: 'miner_start',
+      id: new Date().getTime()
+    });
+  }
+}
+
+async function printMethodOutput (r) {
+  console.log(r.logs);
+}
+
+async function printStatus (dist) {
+  console.log('Total Locked: ', await dist.totalLocked.call().toString());
+  console.log('Total UnLocked: ', await dist.totalUnlocked.call().toString());
+  const c = (await dist.unlockScheduleCount.call()).toNumber();
+  console.log(await dist.unlockScheduleCount.call().toString());
+
+  for (let i = 0; i < c; i++) {
+    console.log(await dist.unlockSchedules.call(i).toString());
+  }
+  // TODO: Print the following variables:
+  // await dist.totalLocked.call()
+  // await dist.totalUnlocked.call()
+  // await dist.unlockScheduleCount.call()
+  // dist.updateAccounting.call() // and all the logs
+  // dist.unlockSchedules.call(1)
+}
+
+async function increaseTimeForNextTransaction (diff) {
+  await promisify(web3.currentProvider.send.bind(web3.currentProvider))({
+    jsonrpc: '2.0',
+    method: 'evm_increaseTime',
+    params: [diff.toNumber()],
+    id: new Date().getTime()
+  });
 }
 
 async function setTimeForNextTransaction (target) {
@@ -38,12 +107,7 @@ async function setTimeForNextTransaction (target) {
 
   if (target.lt(now)) throw Error(`Cannot increase current time (${now}) to a moment in the past (${target})`);
   const diff = target.sub(now);
-  await promisify(web3.currentProvider.send.bind(web3.currentProvider))({
-    jsonrpc: '2.0',
-    method: 'evm_increaseTime',
-    params: [diff.toNumber()],
-    id: new Date().getTime()
-  });
+  increaseTimeForNextTransaction(diff);
 }
 
-module.exports = {checkAprox, invokeRebase, $AMPL, setTimeForNextTransaction};
+module.exports = {checkAmplAprox, checkSharesAprox, invokeRebase, $AMPL, setTimeForNextTransaction, TimeController, printMethodOutput, printStatus};
