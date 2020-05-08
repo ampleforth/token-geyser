@@ -456,7 +456,7 @@ contract TokenGeyser is IStaking, Ownable {
         } else {
             uint256 unlockedShares = 0;
             for (uint256 s = 0; s < unlockSchedules.length; s++) {
-                unlockedShares += unlockScheduleShares(s);
+                unlockedShares = unlockedShares.add(unlockScheduleShares(s));
             }
             unlockedTokens = unlockedShares.mul(lockedTokens).div(totalLockedShares);
             totalLockedShares = totalLockedShares.sub(unlockedShares);
@@ -481,14 +481,14 @@ contract TokenGeyser is IStaking, Ownable {
     function unlockScheduleShares(uint256 s) private returns (uint256) {
         UnlockSchedule storage schedule = unlockSchedules[s];
 
-        if(schedule.unlockedShares >= schedule.initialLockedShares){
+        if(schedule.unlockedShares >= schedule.initialLockedShares) {
             return 0;
         }
 
         uint256 sharesToUnlock = 0;
         // Special case to handle any leftover dust from integer division
-        if(now >= schedule.endAtSec){
-            sharesToUnlock = (schedule.initialLockedShares - schedule.unlockedShares);
+        if (now >= schedule.endAtSec) {
+            sharesToUnlock = (schedule.initialLockedShares.sub(schedule.unlockedShares));
             schedule.lastUnlockTimestampSec = schedule.endAtSec;
         } else {
             sharesToUnlock = now.sub(schedule.lastUnlockTimestampSec)
@@ -497,7 +497,7 @@ contract TokenGeyser is IStaking, Ownable {
             schedule.lastUnlockTimestampSec = now;
         }
 
-        schedule.unlockedShares += sharesToUnlock;
+        schedule.unlockedShares = schedule.unlockedShares.add(sharesToUnlock);
         return sharesToUnlock;
     }
 }
