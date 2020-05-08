@@ -108,7 +108,7 @@ contract TokenGeyser is IStaking, Ownable {
         // If no period is desired, instead set startBonus = 100%
         // and bonusPeriod to a small value like 1sec.
         require(bonusPeriodSec_ != 0, 'TokenGeyser: bonus period is zero');
-        require(initialSharesPerToken > 0);
+        require(initialSharesPerToken > 0, 'TokenGeyser: initialSharesPerToken is zero');
 
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
