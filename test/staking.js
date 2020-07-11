@@ -207,6 +207,14 @@ describe('staking', function () {
           total: $AMPL(100)
         });
       });
+      it('only callable by owner', async function () {
+        await ampl.transfer(anotherAccount, $AMPL(10));
+        await ampl.approve(dist.address, $AMPL(10), { from: anotherAccount });
+        // stakesFor only callable by owner
+        await dist.stakeFor(owner, $AMPL(1), [], { from: owner });
+        await expectRevert(dist.stakeFor(owner, $AMPL(1), [], { from: anotherAccount }),
+            'Ownable: caller is not the owner.');
+      });
     });
   });
 });
