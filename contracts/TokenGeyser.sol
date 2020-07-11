@@ -149,7 +149,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @param amount Number of deposit tokens to stake.
      * @param data Not used.
      */
-    function stakeFor(address user, uint256 amount, bytes calldata data) external {
+    function stakeFor(address user, uint256 amount, bytes calldata data) external onlyOwner {
         _stakeFor(msg.sender, user, amount);
     }
 
