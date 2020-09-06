@@ -36,7 +36,7 @@ contract TokenGeyser is IStaking, Ownable {
     event TokensUnlocked(uint256 amount, uint256 total);
 
     TokenPool private _stakingPool;
-    TokenPool private _unlockedPool;
+    TokenPool public _unlockedPool;
     TokenPool private _lockedPool;
 
     //
