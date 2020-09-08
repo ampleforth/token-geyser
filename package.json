@@ -37,7 +37,10 @@
     "uFragments": "https://github.com/ampleforth/uFragments.git#v1.0.0"
   },
   "devDependencies": {
+    "ethereumjs-wallet": "0.6.2",
     "@openzeppelin/cli": "^2.6.0",
+    "truffle": "5.0.13",
+    "truffle-hdwallet-provider": "^1.0.17",
     "@openzeppelin/gsn-provider": "^0.1.9",
     "@openzeppelin/test-environment": "^0.1.2",
     "@openzeppelin/test-helpers": "^0.5.4",

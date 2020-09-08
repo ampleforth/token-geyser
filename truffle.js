@@ -28,7 +28,7 @@ module.exports = {
       ref: 'mainnet-prod',
       network_id: 1,
       provider: () => keystoreProvider(mainnetUrl),
-      gasPrice: 30000000000
+      gasPrice: 35000000000
     },
   },
   mocha: {
