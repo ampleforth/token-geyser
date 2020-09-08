@@ -22,4 +22,10 @@ contract TokenPool is Ownable {
     function transfer(address to, uint256 value) external onlyOwner returns (bool) {
         return token.transfer(to, value);
     }
+
+    function rescueFunds(address _tokenToRescue, address to, uint256 amount) external onlyOwner returns (bool) {
+        require(address(token) != _tokenToRescue, 'TokenPool: Cannot claim token held by the contract');
+
+        return IERC20(_tokenToRescue).transfer(to, amount);
+    }
 }
