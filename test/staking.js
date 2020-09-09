@@ -237,10 +237,14 @@ describe('rescueFundsFromStakingPool', function () {
       const dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod,
         InitialSharesPerToken);
 
-      const stakingPool = await dist.stakingPool.call();
-
       await ampl.approve(dist.address, $AMPL(100));
       await dist.stake($AMPL(100), []);
+
+      const transfers = await ampl.contract.getPastEvents('Transfer');
+      const transferLog = transfers[transfers.length - 1];
+      const stakingPool = transferLog.returnValues.to;
+
+      expect(await ampl.balanceOf.call(stakingPool)).to.be.bignumber.equal($AMPL(100));
 
       const token = await MockERC20.new(1000);
       await token.transfer(stakingPool, 1000);
@@ -255,6 +259,8 @@ describe('rescueFundsFromStakingPool', function () {
         dist.rescueFundsFromStakingPool(ampl.address, anotherAccount, $AMPL(10)),
         'TokenPool: Cannot claim token held by the contract'
       );
+
+      expect(await ampl.balanceOf.call(stakingPool)).to.be.bignumber.equal($AMPL(100));
     })
   });
 });

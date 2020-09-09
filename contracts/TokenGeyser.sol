@@ -35,7 +35,7 @@ contract TokenGeyser is IStaking, Ownable {
     // amount: Unlocked tokens, total: Total locked tokens
     event TokensUnlocked(uint256 amount, uint256 total);
 
-    TokenPool public stakingPool;
+    TokenPool private _stakingPool;
     TokenPool private _unlockedPool;
     TokenPool private _lockedPool;
 
@@ -110,7 +110,7 @@ contract TokenGeyser is IStaking, Ownable {
         require(bonusPeriodSec_ != 0, 'TokenGeyser: bonus period is zero');
         require(initialSharesPerToken > 0, 'TokenGeyser: initialSharesPerToken is zero');
 
-        stakingPool = new TokenPool(stakingToken);
+        _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
         _lockedPool = new TokenPool(distributionToken);
         startBonus = startBonus_;
@@ -123,7 +123,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @return The token users deposit as stake.
      */
     function getStakingToken() public view returns (IERC20) {
-        return stakingPool.token();
+        return _stakingPool.token();
     }
 
     /**
@@ -186,7 +186,7 @@ contract TokenGeyser is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        require(stakingPool.token().transferFrom(staker, address(stakingPool), amount),
+        require(_stakingPool.token().transferFrom(staker, address(_stakingPool), amount),
             'TokenGeyser: transfer into staking pool failed');
 
         emit Staked(beneficiary, amount, totalStakedFor(beneficiary), "");
@@ -266,7 +266,7 @@ contract TokenGeyser is IStaking, Ownable {
         // _lastAccountingTimestampSec = now;
 
         // interactions
-        require(stakingPool.transfer(msg.sender, amount),
+        require(_stakingPool.transfer(msg.sender, amount),
             'TokenGeyser: transfer out of staking pool failed');
         require(_unlockedPool.transfer(msg.sender, rewardAmount),
             'TokenGeyser: transfer out of unlocked pool failed');
@@ -328,7 +328,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @return The total number of deposit tokens staked globally, by all users.
      */
     function totalStaked() public view returns (uint256) {
-        return stakingPool.balance();
+        return _stakingPool.balance();
     }
 
     /**
@@ -503,10 +503,14 @@ contract TokenGeyser is IStaking, Ownable {
 
     /**
      * @dev Lets the owner rescue funds air-dropped to the staking pool.
+     * @param _tokenToRescue Address of the token to be rescued.
+     * @param to Address to which the rescued funds are to be sent.
+     * @param amount Amount of tokens to be rescued.
+     * @return Transfer success.
      */
     function rescueFundsFromStakingPool(address _tokenToRescue, address to, uint256 amount)
         public onlyOwner returns (bool) {
 
-        return stakingPool.rescueFunds(_tokenToRescue, to, amount);
+        return _stakingPool.rescueFunds(_tokenToRescue, to, amount);
     }
 }
