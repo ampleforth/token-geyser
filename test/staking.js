@@ -10,6 +10,7 @@ const {
   invokeRebase
 } = _require('/test/helper');
 
+const MockERC20 = contract.fromArtifact('MockERC20');
 const AmpleforthErc20 = contract.fromArtifact('UFragments');
 const TokenGeyser = contract.fromArtifact('TokenGeyser');
 const InitialSharesPerToken = 10 ** 6;
@@ -216,5 +217,50 @@ describe('staking', function () {
             'Ownable: caller is not the owner.');
       });
     });
+  });
+});
+
+
+describe('rescueFundsFromStakingPool', function () {
+  describe('when tokens gets air-dropped', function() {
+    it('should allow the owner to claim them', async function() {
+      const accounts = await chain.getUserAccounts();
+      owner = web3.utils.toChecksumAddress(accounts[0]);
+      anotherAccount = web3.utils.toChecksumAddress(accounts[8]);
+
+      ampl = await AmpleforthErc20.new();
+      await ampl.initialize(owner);
+      await ampl.setMonetaryPolicy(owner);
+
+      const startBonus = 50;
+      const bonusPeriod = 86400;
+      const dist = await TokenGeyser.new(ampl.address, ampl.address, 10, startBonus, bonusPeriod,
+        InitialSharesPerToken);
+
+      await ampl.approve(dist.address, $AMPL(100));
+      await dist.stake($AMPL(100), []);
+
+      const transfers = await ampl.contract.getPastEvents('Transfer');
+      const transferLog = transfers[transfers.length - 1];
+      const stakingPool = transferLog.returnValues.to;
+
+      expect(await ampl.balanceOf.call(stakingPool)).to.be.bignumber.equal($AMPL(100));
+
+      const token = await MockERC20.new(1000);
+      await token.transfer(stakingPool, 1000);
+
+      expect(await token.balanceOf.call(anotherAccount)).to.be.bignumber.equal('0');
+      await dist.rescueFundsFromStakingPool(
+        token.address, anotherAccount, 1000
+      );
+      expect(await token.balanceOf.call(anotherAccount)).to.be.bignumber.equal('1000');
+
+      await expectRevert(
+        dist.rescueFundsFromStakingPool(ampl.address, anotherAccount, $AMPL(10)),
+        'TokenPool: Cannot claim token held by the contract'
+      );
+
+      expect(await ampl.balanceOf.call(stakingPool)).to.be.bignumber.equal($AMPL(100));
+    })
   });
 });
