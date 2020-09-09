@@ -503,14 +503,14 @@ contract TokenGeyser is IStaking, Ownable {
 
     /**
      * @dev Lets the owner rescue funds air-dropped to the staking pool.
-     * @param _tokenToRescue Address of the token to be rescued.
+     * @param tokenToRescue Address of the token to be rescued.
      * @param to Address to which the rescued funds are to be sent.
      * @param amount Amount of tokens to be rescued.
      * @return Transfer success.
      */
-    function rescueFundsFromStakingPool(address _tokenToRescue, address to, uint256 amount)
+    function rescueFundsFromStakingPool(address tokenToRescue, address to, uint256 amount)
         public onlyOwner returns (bool) {
 
-        return _stakingPool.rescueFunds(_tokenToRescue, to, amount);
+        return _stakingPool.rescueFunds(tokenToRescue, to, amount);
     }
 }
