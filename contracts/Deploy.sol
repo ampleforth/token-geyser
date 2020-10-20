@@ -16,8 +16,4 @@ contract Deploy {
 	function getTokenGeyserAddress() external view returns (address) {
 		return address(tokenGeyser);
 	}
-
-	function getTokenGeyser() external view returns (TokenGeyser) {
-		return tokenGeyser;
-	}
 }
