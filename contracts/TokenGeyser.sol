@@ -1,11 +1,12 @@
-pragma solidity 0.5.0;
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity ^0.8.24;
 
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
+import { TokenPool } from "./TokenPool.sol";
 
-import "./IStaking.sol";
-import "./TokenPool.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IStaking } from "./IStaking.sol";
 
 /**
  * @title Token Geyser
@@ -26,7 +27,7 @@ import "./TokenPool.sol";
  *      https://github.com/ampleforth/RFCs/blob/master/RFCs/rfc-1.md
  */
 contract TokenGeyser is IStaking, Ownable {
-    using SafeMath for uint256;
+    using SafeMathCompatibility for uint256;
 
     event Staked(address indexed user, uint256 amount, uint256 total, bytes data);
     event Unstaked(address indexed user, uint256 amount, uint256 total, bytes data);
@@ -52,7 +53,7 @@ contract TokenGeyser is IStaking, Ownable {
     uint256 public totalLockedShares = 0;
     uint256 public totalStakingShares = 0;
     uint256 private _totalStakingShareSeconds = 0;
-    uint256 private _lastAccountingTimestampSec = now;
+    uint256 private _lastAccountingTimestampSec = block.timestamp;
     uint256 private _maxUnlockSchedules = 0;
     uint256 private _initialSharesPerToken = 0;
 
@@ -108,7 +109,7 @@ contract TokenGeyser is IStaking, Ownable {
         uint256 startBonus_,
         uint256 bonusPeriodSec_,
         uint256 initialSharesPerToken
-    ) public {
+    ) Ownable(msg.sender) {
         // The start bonus must be some fraction of the max. (i.e. <= 100%)
         require(startBonus_ <= 10 ** BONUS_DECIMALS, "TokenGeyser: start bonus too high");
         // If no period is desired, instead set startBonus = 100%
@@ -116,6 +117,7 @@ contract TokenGeyser is IStaking, Ownable {
         require(bonusPeriodSec_ != 0, "TokenGeyser: bonus period is zero");
         require(initialSharesPerToken > 0, "TokenGeyser: initialSharesPerToken is zero");
 
+        // TODO: use a factory here.
         _stakingPool = new TokenPool(stakingToken);
         _unlockedPool = new TokenPool(distributionToken);
         _lockedPool = new TokenPool(distributionToken);
@@ -187,15 +189,15 @@ contract TokenGeyser is IStaking, Ownable {
         // 1. User Accounting
         UserTotals storage totals = _userTotals[beneficiary];
         totals.stakingShares = totals.stakingShares.add(mintedStakingShares);
-        totals.lastAccountingTimestampSec = now;
+        totals.lastAccountingTimestampSec = block.timestamp;
 
-        Stake memory newStake = Stake(mintedStakingShares, now);
+        Stake memory newStake = Stake(mintedStakingShares, block.timestamp);
         _userStakes[beneficiary].push(newStake);
 
         // 2. Global Accounting
         totalStakingShares = totalStakingShares.add(mintedStakingShares);
         // Already set in updateAccounting()
-        // _lastAccountingTimestampSec = now;
+        // _lastAccountingTimestampSec = block.timestamp;
 
         // interactions
         require(
@@ -255,7 +257,7 @@ contract TokenGeyser is IStaking, Ownable {
         uint256 rewardAmount = 0;
         while (sharesLeftToBurn > 0) {
             Stake storage lastStake = accountStakes[accountStakes.length - 1];
-            uint256 stakeTimeSec = now.sub(lastStake.timestampSec);
+            uint256 stakeTimeSec = block.timestamp.sub(lastStake.timestampSec);
             uint256 newStakingShareSecondsToBurn = 0;
             if (lastStake.stakingShares <= sharesLeftToBurn) {
                 // fully redeem a past stake
@@ -269,7 +271,7 @@ contract TokenGeyser is IStaking, Ownable {
                     newStakingShareSecondsToBurn
                 );
                 sharesLeftToBurn = sharesLeftToBurn.sub(lastStake.stakingShares);
-                accountStakes.length--;
+                accountStakes.pop();
             } else {
                 // partially redeem a past stake
                 newStakingShareSecondsToBurn = sharesLeftToBurn.mul(stakeTimeSec);
@@ -290,7 +292,7 @@ contract TokenGeyser is IStaking, Ownable {
         );
         totals.stakingShares = totals.stakingShares.sub(stakingSharesToBurn);
         // Already set in updateAccounting
-        // totals.lastAccountingTimestampSec = now;
+        // totals.lastAccountingTimestampSec = block.timestamp;
 
         // 2. Global Accounting
         _totalStakingShareSeconds = _totalStakingShareSeconds.sub(
@@ -298,7 +300,7 @@ contract TokenGeyser is IStaking, Ownable {
         );
         totalStakingShares = totalStakingShares.sub(stakingSharesToBurn);
         // Already set in updateAccounting
-        // _lastAccountingTimestampSec = now;
+        // _lastAccountingTimestampSec = block.timestamp;
 
         // interactions
         require(
@@ -401,21 +403,23 @@ contract TokenGeyser is IStaking, Ownable {
         unlockTokens();
 
         // Global accounting
-        uint256 newStakingShareSeconds = now.sub(_lastAccountingTimestampSec).mul(
-            totalStakingShares
-        );
+        uint256 newStakingShareSeconds = block
+            .timestamp
+            .sub(_lastAccountingTimestampSec)
+            .mul(totalStakingShares);
         _totalStakingShareSeconds = _totalStakingShareSeconds.add(newStakingShareSeconds);
-        _lastAccountingTimestampSec = now;
+        _lastAccountingTimestampSec = block.timestamp;
 
         // User Accounting
         UserTotals storage totals = _userTotals[msg.sender];
-        uint256 newUserStakingShareSeconds = now
+        uint256 newUserStakingShareSeconds = block
+            .timestamp
             .sub(totals.lastAccountingTimestampSec)
             .mul(totals.stakingShares);
         totals.stakingShareSeconds = totals.stakingShareSeconds.add(
             newUserStakingShareSeconds
         );
-        totals.lastAccountingTimestampSec = now;
+        totals.lastAccountingTimestampSec = block.timestamp;
 
         uint256 totalUserRewards = (_totalStakingShareSeconds > 0)
             ? totalUnlocked().mul(totals.stakingShareSeconds).div(
@@ -429,7 +433,7 @@ contract TokenGeyser is IStaking, Ownable {
             totals.stakingShareSeconds,
             _totalStakingShareSeconds,
             totalUserRewards,
-            now
+            block.timestamp
         );
     }
 
@@ -477,8 +481,8 @@ contract TokenGeyser is IStaking, Ownable {
 
         UnlockSchedule memory schedule;
         schedule.initialLockedShares = mintedLockedShares;
-        schedule.lastUnlockTimestampSec = now;
-        schedule.endAtSec = now.add(durationSec);
+        schedule.lastUnlockTimestampSec = block.timestamp;
+        schedule.endAtSec = block.timestamp.add(durationSec);
         schedule.durationSec = durationSec;
         unlockSchedules.push(schedule);
 
@@ -538,15 +542,16 @@ contract TokenGeyser is IStaking, Ownable {
 
         uint256 sharesToUnlock = 0;
         // Special case to handle any leftover dust from integer division
-        if (now >= schedule.endAtSec) {
+        if (block.timestamp >= schedule.endAtSec) {
             sharesToUnlock = (schedule.initialLockedShares.sub(schedule.unlockedShares));
             schedule.lastUnlockTimestampSec = schedule.endAtSec;
         } else {
-            sharesToUnlock = now
+            sharesToUnlock = block
+                .timestamp
                 .sub(schedule.lastUnlockTimestampSec)
                 .mul(schedule.initialLockedShares)
                 .div(schedule.durationSec);
-            schedule.lastUnlockTimestampSec = now;
+            schedule.lastUnlockTimestampSec = block.timestamp;
         }
 
         schedule.unlockedShares = schedule.unlockedShares.add(sharesToUnlock);
@@ -566,5 +571,12 @@ contract TokenGeyser is IStaking, Ownable {
         uint256 amount
     ) public onlyOwner returns (bool) {
         return _stakingPool.rescueFunds(tokenToRescue, to, amount);
+    }
+
+    /**
+     * @return False. This application does not support staking history.
+     */
+    function supportsHistory() external pure returns (bool) {
+        return false;
     }
 }
