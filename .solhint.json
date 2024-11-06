@@ -1,7 +1,10 @@
 {
-  "extends": "solhint:default",
+  "extends": "solhint:recommended",
   "rules": {
+    "compiler-version": ["warn", "^0.8.0"],
+    "func-visibility": ["warn", { "ignoreConstructors": true }],
+    "reason-string": ["warn", { "maxLength": 64 }],
     "not-rely-on-time": "off",
-    "indent": ["warn", 4]
+    "max-states-count": ["warn", 17]
   }
 }

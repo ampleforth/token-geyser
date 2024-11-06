@@ -1,68 +1,46 @@
 module.exports = {
-    "extends": ["google", "standard", "plugin:prettier/recommended", "mocha"],
-    "env": {
-        "mocha": true,
-        "node": true,
-        "es6": true,
-    },
-    "parserOptions": {
-      "ecmaVersion": 8,
-    },
-    "globals": {
-      "artifacts": true,
-      "assert": true,
-      "contract": true,
-      "expect": true,
-      "Promise": true,
-      "web3": true,
-    },
-    "plugins": ["prettier", "spellcheck", "chai-friendly"],
-    "rules": {
-      "prettier/prettier": 0,
-      "require-jsdoc": 0,
-      "semi": [2, "always"],
-      "prefer-const": 2,
-      "no-unused-expressions": 0,
-      "chai-friendly/no-unused-expressions": 2,
-      "spellcheck/spell-checker": [
-          2,
-          {
-            "comments": true,
-            "strings": true,
-            "identifiers": true,
-            "lang": "en_US",
-            "skipWords": [
-              // misc
-              "deployer", "http", "https", "github", "chai", "argv", "evm",
-              "jsonrpc", "timestamp", "uint256", "erc20", "bignumber", "lodash",
-              "arg", "npm", "seedrandom", "eql", "sinon", "yaml", "posix", "promisify",
-              "passcode", "geth", "rpc", "rpcmsg","stdev",  "stochasm", "aggregator",
-              "whitelist", "ethereum", "npx", "testrpc", "solc", "whitelisted",
-              "unlockable", "openzeppelin", "checksum", "unstakes", "txfee",
-              "relayer", "gsn", 'struct',
-
-              // shorthand
-              "eth", "args", "util", "utils", "msg", "prev", "bal",
-              "init", "params", "mul", "async", "vals", "fns", "addrs",
-              "fns", "num", "dev", "pre","abi", "gte","rnd", "chk", "bals", "lte",
-              "addr", "perc", "opcode", "aprox", "str",
-
-              // project-specific
-              "rebase", "gons", "frg", "rng", "blockchain", "minlot",
-              "redemptions", "rebased", "ganache", "ethclient",
-              "bytecode", "Binance", "ampl", "unstake", "unstaked", "unstaking",
-              "ampls", "staker", "ownable",
-
-              // names
-              "nithin", "naguib"
-            ],
-            "skipIfMatch": [
-              "http(s)?://[^s]*",
-              "Sha3",
-              "0x*",
-            ],
-            "minLength": 3
-          }
-      ],
-    },
+  env: {
+    browser: false,
+    es2021: true,
+    mocha: true,
+    node: true,
+  },
+  plugins: ["@typescript-eslint", "no-only-tests", "unused-imports"],
+  extends: ["standard", "plugin:prettier/recommended", "plugin:node/recommended"],
+  parser: "@typescript-eslint/parser",
+  parserOptions: {
+    ecmaVersion: 12,
+    warnOnUnsupportedTypeScriptVersion: false,
+  },
+  rules: {
+    "node/no-unsupported-features/es-syntax": ["error", { ignores: ["modules"] }],
+    "node/no-missing-import": [
+      "error",
+      {
+        tryExtensions: [".ts", ".js", ".json"],
+      },
+    ],
+    "node/no-unpublished-import": [
+      "error",
+      {
+        allowModules: [
+          "hardhat",
+          "ethers",
+          "@openzeppelin/upgrades-core",
+          "chai",
+          "@nomicfoundation/hardhat-ethers",
+          "@nomicfoundation/hardhat-chai-matchers",
+          "@nomicfoundation/hardhat-verify",
+          "@nomicfoundation/hardhat-toolbox",
+          "@openzeppelin/hardhat-upgrades",
+          "solidity-coverage",
+          "hardhat-gas-reporter",
+          "dotenv",
+        ],
+      },
+    ],
+    "no-only-tests/no-only-tests": "error",
+    "unused-imports/no-unused-imports": "error",
+    "unused-imports/no-unused-vars": ["warn", { vars: "all" }],
+  },
 };

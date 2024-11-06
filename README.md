@@ -7,6 +7,7 @@ A smart-contract based mechanism to distribute tokens over time, inspired loosel
 Implementation of [Continuous Vesting Token Distribution](https://github.com/ampleforth/RFCs/blob/master/RFCs/rfc-1.md)
 
 The official Geyser contract addresses are (by target):
+
 - UniswapV2 [ETH/AMPL](https://uniswap.exchange/swap?outputCurrency=0xd46ba6d942050d489dbd938a2c909a5d5039a161) Pool: [0xD36132E0c1141B26E62733e018f12Eb38A7b7678](https://etherscan.io/address/0xd36132e0c1141b26e62733e018f12eb38a7b7678)
 
 ## Table of Contents
@@ -15,7 +16,6 @@ The official Geyser contract addresses are (by target):
 - [Testing](#testing)
 - [Contribute](#contribute)
 - [License](#license)
-
 
 ## Install
 
@@ -29,7 +29,7 @@ npx setup-local-chains
 
 ## Testing
 
-``` bash
+```bash
 # You can use the following command to start a local blockchain instance
 npx start-chain [ganacheUnitTest|gethUnitTest]
 
@@ -45,7 +45,7 @@ npx mocha test/staking.js --exit
 To report bugs within this package, please create an issue in this repository.
 When submitting code ensure that it is free of lint errors and has 100% test coverage.
 
-``` bash
+```bash
 # Lint code
 npm run lint
 

@@ -1,4 +1,3 @@
-
 // File: openzeppelin-solidity/contracts/GSN/Context.sol
 
 pragma solidity ^0.5.0;
@@ -16,7 +15,7 @@ pragma solidity ^0.5.0;
 contract Context {
     // Empty internal constructor, to prevent people from mistakenly deploying
     // an instance of this contract, which should be used via inheritance.
-    constructor () internal { }
+    constructor() internal {}
     // solhint-disable-previous-line no-empty-blocks
 
     function _msgSender() internal view returns (address payable) {
@@ -50,7 +49,7 @@ contract Ownable is Context {
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
-    constructor () internal {
+    constructor() internal {
         _owner = _msgSender();
         emit OwnershipTransferred(address(0), _owner);
     }
@@ -169,7 +168,11 @@ interface IERC20 {
      *
      * Emits a {Transfer} event.
      */
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) external returns (bool);
 
     /**
      * @dev Emitted when `value` tokens are moved from one account (`from`) to
@@ -189,8 +192,6 @@ interface IERC20 {
 // File: contracts/TokenPool.sol
 
 pragma solidity 0.5.0;
-
-
 
 /**
  * @title A simple holder of tokens.
@@ -212,8 +213,15 @@ contract TokenPool is Ownable {
         return token.transfer(to, value);
     }
 
-    function rescueFunds(address tokenToRescue, address to, uint256 amount) external onlyOwner returns (bool) {
-        require(address(token) != tokenToRescue, 'TokenPool: Cannot claim token held by the contract');
+    function rescueFunds(
+        address tokenToRescue,
+        address to,
+        uint256 amount
+    ) external onlyOwner returns (bool) {
+        require(
+            address(token) != tokenToRescue,
+            "TokenPool: Cannot claim token held by the contract"
+        );
 
         return IERC20(tokenToRescue).transfer(to, amount);
     }
