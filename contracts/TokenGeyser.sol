@@ -148,32 +148,7 @@ contract TokenGeyser is IStaking, Ownable {
      * @param data Not used.
      */
     function stake(uint256 amount, bytes calldata data) external {
-        _stakeFor(msg.sender, msg.sender, amount);
-    }
-
-    /**
-     * @dev Transfers amount of deposit tokens from the caller on behalf of user.
-     * @param user User address who gains credit for this stake operation.
-     * @param amount Number of deposit tokens to stake.
-     * @param data Not used.
-     */
-    function stakeFor(
-        address user,
-        uint256 amount,
-        bytes calldata data
-    ) external onlyOwner {
-        _stakeFor(msg.sender, user, amount);
-    }
-
-    /**
-     * @dev Private implementation of staking methods.
-     * @param staker User address who deposits tokens to stake.
-     * @param beneficiary User address who gains credit for this stake operation.
-     * @param amount Number of deposit tokens to stake.
-     */
-    function _stakeFor(address staker, address beneficiary, uint256 amount) private {
         require(amount > 0, "TokenGeyser: stake amount is zero");
-        require(beneficiary != address(0), "TokenGeyser: beneficiary is zero address");
         require(
             totalStakingShares == 0 || totalStaked() > 0,
             "TokenGeyser: Invalid state. Staking shares exist, but no staking tokens do"
@@ -187,12 +162,12 @@ contract TokenGeyser is IStaking, Ownable {
         updateAccounting();
 
         // 1. User Accounting
-        UserTotals storage totals = _userTotals[beneficiary];
+        UserTotals storage totals = _userTotals[msg.sender];
         totals.stakingShares = totals.stakingShares.add(mintedStakingShares);
         totals.lastAccountingTimestampSec = block.timestamp;
 
         Stake memory newStake = Stake(mintedStakingShares, block.timestamp);
-        _userStakes[beneficiary].push(newStake);
+        _userStakes[msg.sender].push(newStake);
 
         // 2. Global Accounting
         totalStakingShares = totalStakingShares.add(mintedStakingShares);
@@ -201,11 +176,11 @@ contract TokenGeyser is IStaking, Ownable {
 
         // interactions
         require(
-            _stakingPool.token().transferFrom(staker, address(_stakingPool), amount),
+            _stakingPool.token().transferFrom(msg.sender, address(_stakingPool), amount),
             "TokenGeyser: transfer into staking pool failed"
         );
 
-        emit Staked(beneficiary, amount, totalStakedFor(beneficiary), "");
+        emit Staked(msg.sender, amount, totalStakedFor(msg.sender), "");
     }
 
     /**
