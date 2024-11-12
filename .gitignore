@@ -1,6 +1,5 @@
 node_modules
 .env
-.yarn
 
 # Hardhat files
 /cache
