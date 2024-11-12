@@ -1,7 +1,7 @@
-import { ethers, waffle } from "hardhat";
+import { ethers } from "hardhat";
 import { expect } from "chai";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { SignerWithAddress } from "ethers";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 let owner: SignerWithAddress, anotherAccount: SignerWithAddress;
 

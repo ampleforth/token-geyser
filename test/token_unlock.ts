@@ -1,15 +1,14 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import {
   TimeHelpers,
   $AMPL,
   invokeRebase,
   checkAmplAprox,
   checkSharesAprox,
-  setTimeForNextTransaction,
 } from "../test/helper";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { SignerWithAddress } from "ethers";
 
 let ampl: any, dist: any, owner: SignerWithAddress, anotherAccount: SignerWithAddress;
 const InitialSharesPerToken = BigInt(10 ** 6);
@@ -50,9 +49,9 @@ describe("LockedPool", function () {
     ({ ampl, dist, owner, anotherAccount } = await loadFixture(setupContracts));
   });
 
-  describe("getDistributionToken", function () {
+  describe("distributionToken", function () {
     it("should return the staking token", async function () {
-      expect(await dist.getDistributionToken.staticCall()).to.equal(ampl.target);
+      expect(await dist.distributionToken.staticCall()).to.equal(ampl.target);
     });
   });
 
@@ -462,7 +461,7 @@ describe("LockedPool", function () {
       _r = await dist.updateAccounting.staticCall({ from: owner });
       _t = await TimeHelpers.currentTime();
       await ampl.approve(dist.target, $AMPL(300));
-      await dist.stake($AMPL(100), "0x");
+      await dist.stake($AMPL(100));
       await dist.lockTokens($AMPL(100), ONE_YEAR);
       await TimeHelpers.increaseTime(ONE_YEAR / 2);
       await dist.lockTokens($AMPL(100), ONE_YEAR);

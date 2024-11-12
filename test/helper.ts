@@ -1,5 +1,4 @@
-import { ethers } from "hardhat";
-import { promisify } from "util";
+import hre, { ethers } from "hardhat";
 import { expect } from "chai";
 
 const AMPL_DECIMALS = 9;
