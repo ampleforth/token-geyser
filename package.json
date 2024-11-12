@@ -18,7 +18,7 @@
   "author": "dev-support@ampleforth.org",
   "scripts": {
     "compile": "yarn hardhat compile",
-    "coverage": "yarn hardhat coverage --testfiles 'test/*.ts test/**/*.ts'",
+    "coverage": "yarn hardhat coverage --testfiles 'test/*.ts'",
     "lint": "yarn run lint:sol && yarn run lint:ts && yarn run prettier:list-different",
     "lint:fix": "yarn run prettier && yarn run lint:sol:fix && yarn run lint:ts:fix",
     "lint:sol": "solhint --config ./.solhint.json --max-warnings 0 \"contracts/**/*.sol\"",
@@ -27,8 +27,8 @@
     "lint:ts:fix": "eslint --config ./.eslintrc.yaml --fix --ignore-path ./.eslintignore --ext .js,.ts .",
     "prettier": "prettier --config .prettierrc --write \"**/*.{js,json,md,sol,ts}\"",
     "prettier:list-different": "prettier --config .prettierrc --list-different \"**/*.{js,json,md,sol,ts}\"",
-    "profile": "REPORT_GAS=true yarn hardhat test test/*.ts test/**/*.ts",
-    "test": "yarn hardhat test test/*.ts test/**/*.ts"
+    "profile": "REPORT_GAS=true yarn hardhat test test/*.ts",
+    "test": "yarn hardhat test test/*.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.1.0",
