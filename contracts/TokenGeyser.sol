@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
@@ -28,7 +29,7 @@ import { ITokenGeyser } from "./ITokenGeyser.sol";
  *      More background and motivation available at:
  *      https://github.com/ampleforth/RFCs/blob/master/RFCs/rfc-1.md
  */
-contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
+contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
     using SafeMathCompatibility for uint256;
     using SafeERC20 for IERC20;
 
@@ -129,6 +130,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
         uint256 initialSharesPerToken_
     ) public initializer {
         __Ownable_init(msg.sender);
+        __Pausable_init();
 
         // The start bonus must be some fraction of the max. (i.e. <= 100%)
         require(startBonus_ <= 10 ** BONUS_DECIMALS, "TokenGeyser: start bonus too high");
@@ -179,7 +181,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
      * @dev Transfers amount of deposit tokens from the user.
      * @param amount Number of deposit tokens to stake.
      */
-    function stake(uint256 amount) external {
+    function stake(uint256 amount) external whenNotPaused {
         require(amount > 0, "TokenGeyser: stake amount is zero");
         require(
             totalStakingShares == 0 || totalStaked() > 0,
@@ -216,7 +218,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
      * alotted number of distribution tokens.
      * @param amount Number of deposit tokens to unstake / withdraw.
      */
-    function unstake(uint256 amount) external returns (uint256) {
+    function unstake(uint256 amount) external whenNotPaused returns (uint256) {
         updateAccounting();
 
         // checks
@@ -367,6 +369,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
      */
     function updateAccounting()
         public
+        whenNotPaused
         returns (uint256, uint256, uint256, uint256, uint256, uint256)
     {
         unlockTokens();
@@ -432,7 +435,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
      *      previously defined unlock schedules. Publicly callable.
      * @return Number of newly unlocked distribution tokens.
      */
-    function unlockTokens() public returns (uint256) {
+    function unlockTokens() public whenNotPaused returns (uint256) {
         uint256 unlockedTokens = 0;
         uint256 lockedTokens = totalLocked();
 
@@ -458,6 +461,16 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
     //-------------------------------------------------------------------------
     // Admin only methods
 
+    /// @notice Pauses all user interactions.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses all user interactions.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev This funcion allows the contract owner to add more locked distribution tokens, along
      *      with the associated "unlock schedule". These locked tokens immediately begin unlocking
@@ -465,7 +478,10 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
      * @param amount Number of distribution tokens to lock. These are transferred from the caller.
      * @param durationSec Length of time to linear unlock the tokens.
      */
-    function lockTokens(uint256 amount, uint256 durationSec) external onlyOwner {
+    function lockTokens(
+        uint256 amount,
+        uint256 durationSec
+    ) external onlyOwner {
         require(
             unlockSchedules.length < maxUnlockSchedules,
             "TokenGeyser: reached maximum unlock schedules"

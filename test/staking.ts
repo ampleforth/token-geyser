@@ -74,6 +74,59 @@ describe("staking", function () {
     });
   });
 
+  describe("#pause", function () {
+    describe("when triggered by non-owner", function () {
+      it("should revert", async function () {
+        await dist.transferOwnership(anotherAccount);
+        await expect(dist.pause()).to.be.revertedWithCustomError(
+          dist,
+          "OwnableUnauthorizedAccount",
+        );
+      });
+    });
+
+    describe("when already paused", function () {
+      it("should revert", async function () {
+        await dist.pause();
+        await expect(dist.pause()).to.be.revertedWithCustomError(dist, "EnforcedPause");
+      });
+    });
+
+    describe("when valid", function () {
+      it("should pause", async function () {
+        await dist.pause();
+        expect(await dist.paused()).to.eq(true);
+      });
+    });
+  });
+
+  describe("#unpause", function () {
+    describe("when triggered by non-owner", function () {
+      it("should revert", async function () {
+        await dist.pause();
+        await dist.transferOwnership(anotherAccount);
+        await expect(dist.unpause()).to.be.revertedWithCustomError(
+          dist,
+          "OwnableUnauthorizedAccount",
+        );
+      });
+    });
+
+    describe("when not paused", function () {
+      it("should revert", async function () {
+        await expect(dist.unpause()).to.be.revertedWithCustomError(dist, "ExpectedPause");
+      });
+    });
+
+    describe("when valid", function () {
+      it("should unpause", async function () {
+        await dist.pause();
+        await dist.unpause();
+        expect(await dist.paused()).to.eq(false);
+      });
+    });
+  });
+
   describe("owner", function () {
     it("should return the owner", async function () {
       expect(await dist.owner()).to.equal(await owner.getAddress());
