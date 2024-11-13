@@ -1,7 +1,13 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { $AMPL, invokeRebase, checkAmplAprox, TimeHelpers } from "../test/helper";
+import {
+  $AMPL,
+  invokeRebase,
+  checkAmplAprox,
+  TimeHelpers,
+  deployGeyser,
+} from "../test/helper";
 import { SignerWithAddress } from "ethers";
 
 let ampl: any, dist: any, owner: SignerWithAddress, anotherAccount: SignerWithAddress;
@@ -19,10 +25,9 @@ async function setupContracts() {
   const TokenPool = await ethers.getContractFactory("TokenPool");
   const tokenPoolImpl = await TokenPool.deploy();
 
-  const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
   const startBonus = 50; // 50%
   const bonusPeriod = 86400; // 1 Day
-  dist = await TokenGeyser.deploy(
+  dist = await deployGeyser(owner, [
     tokenPoolImpl.target,
     ampl.target,
     ampl.target,
@@ -30,7 +35,7 @@ async function setupContracts() {
     startBonus,
     bonusPeriod,
     InitialSharesPerToken,
-  );
+  ]);
 
   await ampl.transfer(await anotherAccount.getAddress(), $AMPL(50000));
   await ampl.connect(anotherAccount).approve(dist.target, $AMPL(50000));

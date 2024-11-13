@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { $AMPL, invokeRebase } from "../test/helper";
+import { $AMPL, invokeRebase, deployGeyser } from "../test/helper";
 import { SignerWithAddress } from "ethers";
 
 let ampl: any,
@@ -23,8 +23,7 @@ describe("staking", function () {
     const TokenPool = await ethers.getContractFactory("TokenPool");
     const tokenPoolImpl = await TokenPool.deploy();
 
-    const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
-    dist = await TokenGeyser.deploy(
+    dist = await deployGeyser(owner, [
       tokenPoolImpl.target,
       ampl.target,
       ampl.target,
@@ -32,7 +31,7 @@ describe("staking", function () {
       50,
       86400,
       InitialSharesPerToken,
-    );
+    ]);
 
     return { ampl, tokenPoolImpl, dist, owner, anotherAccount };
   }
@@ -45,9 +44,8 @@ describe("staking", function () {
 
   describe("when start bonus too high", function () {
     it("should fail to construct", async function () {
-      const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
       await expect(
-        TokenGeyser.deploy(
+        deployGeyser(owner, [
           tokenPoolImpl.target,
           ampl.target,
           ampl.target,
@@ -55,16 +53,15 @@ describe("staking", function () {
           101,
           86400,
           InitialSharesPerToken,
-        ),
+        ]),
       ).to.be.revertedWith("TokenGeyser: start bonus too high");
     });
   });
 
   describe("when bonus period is 0", function () {
     it("should fail to construct", async function () {
-      const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
       await expect(
-        TokenGeyser.deploy(
+        deployGeyser(owner, [
           tokenPoolImpl.target,
           ampl.target,
           ampl.target,
@@ -72,8 +69,14 @@ describe("staking", function () {
           50,
           0,
           InitialSharesPerToken,
-        ),
+        ]),
       ).to.be.revertedWith("TokenGeyser: bonus period is zero");
+    });
+  });
+
+  describe("owner", function () {
+    it("should return the owner", async function () {
+      expect(await dist.owner()).to.equal(await owner.getAddress());
     });
   });
 
