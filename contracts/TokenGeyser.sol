@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.24;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
@@ -28,7 +28,7 @@ import { ITokenGeyser } from "./ITokenGeyser.sol";
  *      More background and motivation available at:
  *      https://github.com/ampleforth/RFCs/blob/master/RFCs/rfc-1.md
  */
-contract TokenGeyser is ITokenGeyser, Ownable {
+contract TokenGeyser is ITokenGeyser, OwnableUpgradeable {
     using SafeMathCompatibility for uint256;
     using SafeERC20 for IERC20;
 
@@ -53,18 +53,18 @@ contract TokenGeyser is ITokenGeyser, Ownable {
     // Time-bonus params
     //
     uint256 public constant BONUS_DECIMALS = 2;
-    uint256 public startBonus = 0;
-    uint256 public bonusPeriodSec = 0;
+    uint256 public startBonus;
+    uint256 public bonusPeriodSec;
 
     //
     // Global accounting state
     //
-    uint256 public totalLockedShares = 0;
-    uint256 public totalStakingShares = 0;
-    uint256 public totalStakingShareSeconds = 0;
-    uint256 public lastAccountingTimestampSec = block.timestamp;
-    uint256 public maxUnlockSchedules = 0;
-    uint256 public initialSharesPerToken = 0;
+    uint256 public totalLockedShares;
+    uint256 public totalStakingShares;
+    uint256 public totalStakingShareSeconds;
+    uint256 public lastAccountingTimestampSec;
+    uint256 public maxUnlockSchedules;
+    uint256 public initialSharesPerToken;
 
     //
     // User accounting state
@@ -103,7 +103,12 @@ contract TokenGeyser is ITokenGeyser, Ownable {
     UnlockSchedule[] public unlockSchedules;
 
     //-------------------------------------------------------------------------
-    // Constructor
+    // Construction
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
      * @param stakingToken_ The token users deposit as stake.
@@ -114,7 +119,7 @@ contract TokenGeyser is ITokenGeyser, Ownable {
      * @param bonusPeriodSec_ Length of time for bonus to increase linearly to max.
      * @param initialSharesPerToken_ Number of shares to mint per staking token on first stake.
      */
-    constructor(
+    function init(
         address tokenPoolImpl,
         IERC20 stakingToken_,
         IERC20 distributionToken_,
@@ -122,7 +127,9 @@ contract TokenGeyser is ITokenGeyser, Ownable {
         uint256 startBonus_,
         uint256 bonusPeriodSec_,
         uint256 initialSharesPerToken_
-    ) Ownable(msg.sender) {
+    ) public initializer {
+        __Ownable_init(msg.sender);
+
         // The start bonus must be some fraction of the max. (i.e. <= 100%)
         require(startBonus_ <= 10 ** BONUS_DECIMALS, "TokenGeyser: start bonus too high");
         // If no period is desired, instead set startBonus = 100%
@@ -141,6 +148,11 @@ contract TokenGeyser is ITokenGeyser, Ownable {
 
         startBonus = startBonus_;
         bonusPeriodSec = bonusPeriodSec_;
+
+        totalLockedShares = 0;
+        totalStakingShares = 0;
+        totalStakingShareSeconds = 0;
+        lastAccountingTimestampSec = block.timestamp;
         maxUnlockSchedules = maxUnlockSchedules_;
         initialSharesPerToken = initialSharesPerToken_;
     }

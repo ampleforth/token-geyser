@@ -7,6 +7,7 @@ import {
   invokeRebase,
   checkAmplAprox,
   checkSharesAprox,
+  deployGeyser,
 } from "../test/helper";
 import { SignerWithAddress } from "ethers";
 
@@ -31,8 +32,7 @@ async function setupContracts() {
   const TokenPool = await ethers.getContractFactory("TokenPool");
   const tokenPoolImpl = await TokenPool.deploy();
 
-  const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
-  dist = await TokenGeyser.deploy(
+  dist = await deployGeyser(owner, [
     tokenPoolImpl.target,
     ampl.target,
     ampl.target,
@@ -40,7 +40,7 @@ async function setupContracts() {
     START_BONUS,
     BONUS_PERIOD,
     InitialSharesPerToken,
-  );
+  ]);
 
   return { ampl, tokenPoolImpl, dist, owner, anotherAccount };
 }
@@ -68,8 +68,7 @@ describe("LockedPool", function () {
   describe("lockTokens", function () {
     describe("when not approved", function () {
       it("should fail", async function () {
-        const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
-        const d = await TokenGeyser.deploy(
+        const d = await deployGeyser(owner, [
           tokenPoolImpl.target,
           ampl.target,
           ampl.target,
@@ -77,15 +76,14 @@ describe("LockedPool", function () {
           START_BONUS,
           BONUS_PERIOD,
           InitialSharesPerToken,
-        );
+        ]);
         await expect(d.lockTokens($AMPL(10), ONE_YEAR)).to.be.reverted;
       });
     });
 
     describe("when number of unlock schedules exceeds the maxUnlockSchedules", function () {
       it("should fail", async function () {
-        const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
-        const d = await TokenGeyser.deploy(
+        const d = await deployGeyser(owner, [
           tokenPoolImpl.target,
           ampl.target,
           ampl.target,
@@ -93,7 +91,7 @@ describe("LockedPool", function () {
           START_BONUS,
           BONUS_PERIOD,
           InitialSharesPerToken,
-        );
+        ]);
         await ampl.approve(d.target, $AMPL(100));
         for (let i = 0; i < 5; i++) {
           await d.lockTokens($AMPL(10), ONE_YEAR);
