@@ -16,10 +16,14 @@ async function setupContracts() {
   await ampl.initialize(await owner.getAddress());
   await ampl.setMonetaryPolicy(await owner.getAddress());
 
+  const TokenPool = await ethers.getContractFactory("TokenPool");
+  const tokenPoolImpl = await TokenPool.deploy();
+
   const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
   const startBonus = 50; // 50%
   const bonusPeriod = 86400; // 1 Day
   dist = await TokenGeyser.deploy(
+    tokenPoolImpl.target,
     ampl.target,
     ampl.target,
     10,
