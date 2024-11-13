@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
@@ -29,7 +30,12 @@ import { ITokenGeyser } from "./ITokenGeyser.sol";
  *      More background and motivation available at:
  *      https://github.com/ampleforth/RFCs/blob/master/RFCs/rfc-1.md
  */
-contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
+contract TokenGeyser is
+    ITokenGeyser,
+    OwnableUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using SafeMathCompatibility for uint256;
     using SafeERC20 for IERC20;
 
@@ -131,11 +137,12 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
     ) public initializer {
         __Ownable_init(msg.sender);
         __Pausable_init();
+        __ReentrancyGuard_init();
 
         // The start bonus must be some fraction of the max. (i.e. <= 100%)
         require(startBonus_ <= 10 ** BONUS_DECIMALS, "TokenGeyser: start bonus too high");
         // If no period is desired, instead set startBonus = 100%
-        // and bonusPeriod to a small value like 1sec.
+        // and bonusPeriod to a small value like 1 sec.
         require(bonusPeriodSec_ != 0, "TokenGeyser: bonus period is zero");
         require(initialSharesPerToken_ > 0, "TokenGeyser: initialSharesPerToken is zero");
 
@@ -178,10 +185,10 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
     }
 
     /**
-     * @dev Transfers amount of deposit tokens from the user.
+     * @notice Transfers amount of deposit tokens from the user.
      * @param amount Number of deposit tokens to stake.
      */
-    function stake(uint256 amount) external whenNotPaused {
+    function stake(uint256 amount) external nonReentrant whenNotPaused {
         require(amount > 0, "TokenGeyser: stake amount is zero");
         require(
             totalStakingShares == 0 || totalStaked() > 0,
@@ -193,7 +200,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
             : amount.mul(initialSharesPerToken);
         require(mintedStakingShares > 0, "TokenGeyser: Stake amount is too small");
 
-        updateAccounting();
+        _updateAccounting();
 
         // 1. User Accounting
         UserTotals storage totals = userTotals[msg.sender];
@@ -205,7 +212,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
 
         // 2. Global Accounting
         totalStakingShares = totalStakingShares.add(mintedStakingShares);
-        // Already set in updateAccounting()
+        // Already set in _updateAccounting()
         // lastAccountingTimestampSec = block.timestamp;
 
         // interactions
@@ -214,12 +221,14 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
     }
 
     /**
-     * @dev Unstakes a certain amount of previously deposited tokens. User also receives their
+     * @notice Unstakes a certain amount of previously deposited tokens. User also receives their
      * alotted number of distribution tokens.
      * @param amount Number of deposit tokens to unstake / withdraw.
      */
-    function unstake(uint256 amount) external whenNotPaused returns (uint256) {
-        updateAccounting();
+    function unstake(
+        uint256 amount
+    ) external nonReentrant whenNotPaused returns (uint256) {
+        _updateAccounting();
 
         // checks
         require(amount > 0, "TokenGeyser: unstake amount is zero");
@@ -303,7 +312,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
     }
 
     /**
-     * @dev Applies an additional time-bonus to a distribution amount. This is necessary to
+     * @notice Applies an additional time-bonus to a distribution amount. This is necessary to
      *      encourage long-term deposits instead of constant unstake/restakes.
      *      The bonus-multiplier is the result of a linear function that starts at startBonus and
      *      ends at 100% over bonusPeriodSec, then stays at 100% thereafter.
@@ -358,7 +367,7 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
     }
 
     /**
-     * @dev A globally callable function to update the accounting state of the system.
+     * @notice A globally callable function to update the accounting state of the system.
      *      Global state and state for the caller are updated.
      * @return [0] balance of the locked pool
      * @return [1] balance of the unlocked pool
@@ -368,11 +377,116 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
      * @return [5] block timestamp
      */
     function updateAccounting()
-        public
+        external
+        nonReentrant
         whenNotPaused
         returns (uint256, uint256, uint256, uint256, uint256, uint256)
     {
-        unlockTokens();
+        return _updateAccounting();
+    }
+
+    /**
+     * @return Total number of locked distribution tokens.
+     */
+    function totalLocked() public view override returns (uint256) {
+        return lockedPool.balance();
+    }
+
+    /**
+     * @return Total number of unlocked distribution tokens.
+     */
+    function totalUnlocked() public view override returns (uint256) {
+        return unlockedPool.balance();
+    }
+
+    /**
+     * @return Number of unlock schedules.
+     */
+    function unlockScheduleCount() external view returns (uint256) {
+        return unlockSchedules.length;
+    }
+
+    /**
+     * @notice Moves distribution tokens from the locked pool to the unlocked pool, according to the
+     *      previously defined unlock schedules. Publicly callable.
+     * @return Number of newly unlocked distribution tokens.
+     */
+    function unlockTokens() external nonReentrant whenNotPaused returns (uint256) {
+        return _unlockTokens();
+    }
+
+    //-------------------------------------------------------------------------
+    // Admin only methods
+
+    /// @notice Pauses all user interactions.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses all user interactions.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @dev This funcion allows the contract owner to add more locked distribution tokens, along
+     *      with the associated "unlock schedule". These locked tokens immediately begin unlocking
+     *      linearly over the duraction of durationSec timeframe.
+     * @param amount Number of distribution tokens to lock. These are transferred from the caller.
+     * @param durationSec Length of time to linear unlock the tokens.
+     */
+    function lockTokens(uint256 amount, uint256 durationSec) external onlyOwner {
+        require(
+            unlockSchedules.length < maxUnlockSchedules,
+            "TokenGeyser: reached maximum unlock schedules"
+        );
+
+        // Update lockedTokens amount before using it in computations after.
+        _updateAccounting();
+
+        uint256 lockedTokens = totalLocked();
+        uint256 mintedLockedShares = (lockedTokens > 0)
+            ? totalLockedShares.mul(amount).div(lockedTokens)
+            : amount.mul(initialSharesPerToken);
+
+        UnlockSchedule memory schedule;
+        schedule.initialLockedShares = mintedLockedShares;
+        schedule.lastUnlockTimestampSec = block.timestamp;
+        schedule.endAtSec = block.timestamp.add(durationSec);
+        schedule.durationSec = durationSec;
+        unlockSchedules.push(schedule);
+
+        totalLockedShares = totalLockedShares.add(mintedLockedShares);
+
+        lockedPool.token().safeTransferFrom(msg.sender, address(lockedPool), amount);
+        emit TokensLocked(amount, durationSec, totalLocked());
+    }
+
+    /**
+     * @dev Lets the owner rescue funds air-dropped to the staking pool.
+     * @param tokenToRescue Address of the token to be rescued.
+     * @param to Address to which the rescued funds are to be sent.
+     * @param amount Amount of tokens to be rescued.
+     */
+    function rescueFundsFromStakingPool(
+        address tokenToRescue,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        stakingPool.rescueFunds(tokenToRescue, to, amount);
+    }
+
+    //-------------------------------------------------------------------------
+    // Private methods
+
+    /**
+     * @dev Updates time-dependent global storage state.
+     */
+    function _updateAccounting()
+        private
+        returns (uint256, uint256, uint256, uint256, uint256, uint256)
+    {
+        _unlockTokens();
 
         // Global accounting
         uint256 newStakingShareSeconds = block
@@ -410,32 +524,9 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
     }
 
     /**
-     * @return Total number of locked distribution tokens.
+     * @dev Unlocks distribution tokens based on reward schedule.
      */
-    function totalLocked() public view override returns (uint256) {
-        return lockedPool.balance();
-    }
-
-    /**
-     * @return Total number of unlocked distribution tokens.
-     */
-    function totalUnlocked() public view override returns (uint256) {
-        return unlockedPool.balance();
-    }
-
-    /**
-     * @return Number of unlock schedules.
-     */
-    function unlockScheduleCount() public view returns (uint256) {
-        return unlockSchedules.length;
-    }
-
-    /**
-     * @dev Moves distribution tokens from the locked pool to the unlocked pool, according to the
-     *      previously defined unlock schedules. Publicly callable.
-     * @return Number of newly unlocked distribution tokens.
-     */
-    function unlockTokens() public whenNotPaused returns (uint256) {
+    function _unlockTokens() private returns (uint256) {
         uint256 unlockedTokens = 0;
         uint256 lockedTokens = totalLocked();
 
@@ -457,73 +548,6 @@ contract TokenGeyser is ITokenGeyser, OwnableUpgradeable, PausableUpgradeable {
 
         return unlockedTokens;
     }
-
-    //-------------------------------------------------------------------------
-    // Admin only methods
-
-    /// @notice Pauses all user interactions.
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpauses all user interactions.
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
-    /**
-     * @dev This funcion allows the contract owner to add more locked distribution tokens, along
-     *      with the associated "unlock schedule". These locked tokens immediately begin unlocking
-     *      linearly over the duraction of durationSec timeframe.
-     * @param amount Number of distribution tokens to lock. These are transferred from the caller.
-     * @param durationSec Length of time to linear unlock the tokens.
-     */
-    function lockTokens(
-        uint256 amount,
-        uint256 durationSec
-    ) external onlyOwner {
-        require(
-            unlockSchedules.length < maxUnlockSchedules,
-            "TokenGeyser: reached maximum unlock schedules"
-        );
-
-        // Update lockedTokens amount before using it in computations after.
-        updateAccounting();
-
-        uint256 lockedTokens = totalLocked();
-        uint256 mintedLockedShares = (lockedTokens > 0)
-            ? totalLockedShares.mul(amount).div(lockedTokens)
-            : amount.mul(initialSharesPerToken);
-
-        UnlockSchedule memory schedule;
-        schedule.initialLockedShares = mintedLockedShares;
-        schedule.lastUnlockTimestampSec = block.timestamp;
-        schedule.endAtSec = block.timestamp.add(durationSec);
-        schedule.durationSec = durationSec;
-        unlockSchedules.push(schedule);
-
-        totalLockedShares = totalLockedShares.add(mintedLockedShares);
-
-        lockedPool.token().safeTransferFrom(msg.sender, address(lockedPool), amount);
-        emit TokensLocked(amount, durationSec, totalLocked());
-    }
-
-    /**
-     * @dev Lets the owner rescue funds air-dropped to the staking pool.
-     * @param tokenToRescue Address of the token to be rescued.
-     * @param to Address to which the rescued funds are to be sent.
-     * @param amount Amount of tokens to be rescued.
-     */
-    function rescueFundsFromStakingPool(
-        address tokenToRescue,
-        address to,
-        uint256 amount
-    ) public onlyOwner {
-        stakingPool.rescueFunds(tokenToRescue, to, amount);
-    }
-
-    //-------------------------------------------------------------------------
-    // Private methods
 
     /**
      * @dev Returns the number of unlockable shares from a given schedule. The returned value
