@@ -4,7 +4,11 @@ import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { $AMPL, invokeRebase } from "../test/helper";
 import { SignerWithAddress } from "ethers";
 
-let ampl: any, dist: any, owner: SignerWithAddress, anotherAccount: SignerWithAddress;
+let ampl: any,
+  tokenPoolImpl: any,
+  dist: any,
+  owner: SignerWithAddress,
+  anotherAccount: SignerWithAddress;
 const InitialSharesPerToken = BigInt(10 ** 6);
 
 describe("staking", function () {
@@ -16,8 +20,12 @@ describe("staking", function () {
     await ampl.initialize(await owner.getAddress());
     await ampl.setMonetaryPolicy(await owner.getAddress());
 
+    const TokenPool = await ethers.getContractFactory("TokenPool");
+    const tokenPoolImpl = await TokenPool.deploy();
+
     const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
     dist = await TokenGeyser.deploy(
+      tokenPoolImpl.target,
       ampl.target,
       ampl.target,
       10,
@@ -26,11 +34,13 @@ describe("staking", function () {
       InitialSharesPerToken,
     );
 
-    return { ampl, dist, owner, anotherAccount };
+    return { ampl, tokenPoolImpl, dist, owner, anotherAccount };
   }
 
   beforeEach(async function () {
-    ({ ampl, dist, owner, anotherAccount } = await loadFixture(setupContracts));
+    ({ ampl, tokenPoolImpl, dist, owner, anotherAccount } = await loadFixture(
+      setupContracts,
+    ));
   });
 
   describe("when start bonus too high", function () {
@@ -38,6 +48,7 @@ describe("staking", function () {
       const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
       await expect(
         TokenGeyser.deploy(
+          tokenPoolImpl.target,
           ampl.target,
           ampl.target,
           10,
@@ -53,7 +64,15 @@ describe("staking", function () {
     it("should fail to construct", async function () {
       const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
       await expect(
-        TokenGeyser.deploy(ampl.target, ampl.target, 10, 50, 0, InitialSharesPerToken),
+        TokenGeyser.deploy(
+          tokenPoolImpl.target,
+          ampl.target,
+          ampl.target,
+          10,
+          50,
+          0,
+          InitialSharesPerToken,
+        ),
       ).to.be.revertedWith("TokenGeyser: bonus period is zero");
     });
   });

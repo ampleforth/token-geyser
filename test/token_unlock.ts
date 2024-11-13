@@ -10,7 +10,11 @@ import {
 } from "../test/helper";
 import { SignerWithAddress } from "ethers";
 
-let ampl: any, dist: any, owner: SignerWithAddress, anotherAccount: SignerWithAddress;
+let ampl: any,
+  tokenPoolImpl: any,
+  dist: any,
+  owner: SignerWithAddress,
+  anotherAccount: SignerWithAddress;
 const InitialSharesPerToken = BigInt(10 ** 6);
 const ONE_YEAR = 365 * 24 * 3600;
 const START_BONUS = 50;
@@ -24,8 +28,12 @@ async function setupContracts() {
   await ampl.initialize(await owner.getAddress());
   await ampl.setMonetaryPolicy(await owner.getAddress());
 
+  const TokenPool = await ethers.getContractFactory("TokenPool");
+  const tokenPoolImpl = await TokenPool.deploy();
+
   const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
   dist = await TokenGeyser.deploy(
+    tokenPoolImpl.target,
     ampl.target,
     ampl.target,
     10,
@@ -34,7 +42,7 @@ async function setupContracts() {
     InitialSharesPerToken,
   );
 
-  return { ampl, dist, owner, anotherAccount };
+  return { ampl, tokenPoolImpl, dist, owner, anotherAccount };
 }
 
 async function checkAvailableToUnlock(dist, v) {
@@ -46,7 +54,9 @@ async function checkAvailableToUnlock(dist, v) {
 
 describe("LockedPool", function () {
   beforeEach("setup contracts", async function () {
-    ({ ampl, dist, owner, anotherAccount } = await loadFixture(setupContracts));
+    ({ ampl, tokenPoolImpl, dist, owner, anotherAccount } = await loadFixture(
+      setupContracts,
+    ));
   });
 
   describe("distributionToken", function () {
@@ -60,6 +70,7 @@ describe("LockedPool", function () {
       it("should fail", async function () {
         const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
         const d = await TokenGeyser.deploy(
+          tokenPoolImpl.target,
           ampl.target,
           ampl.target,
           5n,
@@ -75,6 +86,7 @@ describe("LockedPool", function () {
       it("should fail", async function () {
         const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
         const d = await TokenGeyser.deploy(
+          tokenPoolImpl.target,
           ampl.target,
           ampl.target,
           5n,

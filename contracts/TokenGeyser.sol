@@ -2,8 +2,10 @@
 pragma solidity ^0.8.24;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
-import { TokenPool } from "./TokenPool.sol";
+import { ITokenPool } from "./ITokenPool.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ITokenGeyser } from "./ITokenGeyser.sol";
@@ -28,6 +30,7 @@ import { ITokenGeyser } from "./ITokenGeyser.sol";
  */
 contract TokenGeyser is ITokenGeyser, Ownable {
     using SafeMathCompatibility for uint256;
+    using SafeERC20 for IERC20;
 
     //-------------------------------------------------------------------------
     // Events
@@ -42,9 +45,9 @@ contract TokenGeyser is ITokenGeyser, Ownable {
     //-------------------------------------------------------------------------
     // Storage
 
-    TokenPool public stakingPool;
-    TokenPool public unlockedPool;
-    TokenPool public lockedPool;
+    ITokenPool public stakingPool;
+    ITokenPool public unlockedPool;
+    ITokenPool public lockedPool;
 
     //
     // Time-bonus params
@@ -112,6 +115,7 @@ contract TokenGeyser is ITokenGeyser, Ownable {
      * @param initialSharesPerToken_ Number of shares to mint per staking token on first stake.
      */
     constructor(
+        address tokenPoolImpl,
         IERC20 stakingToken_,
         IERC20 distributionToken_,
         uint256 maxUnlockSchedules_,
@@ -126,10 +130,15 @@ contract TokenGeyser is ITokenGeyser, Ownable {
         require(bonusPeriodSec_ != 0, "TokenGeyser: bonus period is zero");
         require(initialSharesPerToken_ > 0, "TokenGeyser: initialSharesPerToken is zero");
 
-        // TODO: use a factory here.
-        stakingPool = new TokenPool(stakingToken_);
-        unlockedPool = new TokenPool(distributionToken_);
-        lockedPool = new TokenPool(distributionToken_);
+        stakingPool = ITokenPool(Clones.clone(tokenPoolImpl));
+        stakingPool.init(stakingToken_);
+
+        unlockedPool = ITokenPool(Clones.clone(tokenPoolImpl));
+        unlockedPool.init(distributionToken_);
+
+        lockedPool = ITokenPool(Clones.clone(tokenPoolImpl));
+        lockedPool.init(distributionToken_);
+
         startBonus = startBonus_;
         bonusPeriodSec = bonusPeriodSec_;
         maxUnlockSchedules = maxUnlockSchedules_;
@@ -186,11 +195,7 @@ contract TokenGeyser is ITokenGeyser, Ownable {
         // lastAccountingTimestampSec = block.timestamp;
 
         // interactions
-        require(
-            stakingPool.token().transferFrom(msg.sender, address(stakingPool), amount),
-            "TokenGeyser: transfer into staking pool failed"
-        );
-
+        stakingPool.token().safeTransferFrom(msg.sender, address(stakingPool), amount);
         emit Staked(msg.sender, amount, totalStakedFor(msg.sender));
     }
 
@@ -270,14 +275,8 @@ contract TokenGeyser is ITokenGeyser, Ownable {
         // lastAccountingTimestampSec = block.timestamp;
 
         // interactions
-        require(
-            stakingPool.transfer(msg.sender, amount),
-            "TokenGeyser: transfer out of staking pool failed"
-        );
-        require(
-            unlockedPool.transfer(msg.sender, rewardAmount),
-            "TokenGeyser: transfer out of unlocked pool failed"
-        );
+        stakingPool.transfer(msg.sender, amount);
+        unlockedPool.transfer(msg.sender, rewardAmount);
 
         emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender));
         emit TokensClaimed(msg.sender, rewardAmount);
@@ -437,10 +436,7 @@ contract TokenGeyser is ITokenGeyser, Ownable {
         }
 
         if (unlockedTokens > 0) {
-            require(
-                lockedPool.transfer(address(unlockedPool), unlockedTokens),
-                "TokenGeyser: transfer out of locked pool failed"
-            );
+            lockedPool.transfer(address(unlockedPool), unlockedTokens);
             emit TokensUnlocked(unlockedTokens, totalLocked());
         }
 
@@ -480,10 +476,7 @@ contract TokenGeyser is ITokenGeyser, Ownable {
 
         totalLockedShares = totalLockedShares.add(mintedLockedShares);
 
-        require(
-            lockedPool.token().transferFrom(msg.sender, address(lockedPool), amount),
-            "TokenGeyser: transfer into locked pool failed"
-        );
+        lockedPool.token().safeTransferFrom(msg.sender, address(lockedPool), amount);
         emit TokensLocked(amount, durationSec, totalLocked());
     }
 
@@ -492,14 +485,13 @@ contract TokenGeyser is ITokenGeyser, Ownable {
      * @param tokenToRescue Address of the token to be rescued.
      * @param to Address to which the rescued funds are to be sent.
      * @param amount Amount of tokens to be rescued.
-     * @return Transfer success.
      */
     function rescueFundsFromStakingPool(
         address tokenToRescue,
         address to,
         uint256 amount
-    ) public onlyOwner returns (bool) {
-        return stakingPool.rescueFunds(tokenToRescue, to, amount);
+    ) public onlyOwner {
+        stakingPool.rescueFunds(tokenToRescue, to, amount);
     }
 
     //-------------------------------------------------------------------------
