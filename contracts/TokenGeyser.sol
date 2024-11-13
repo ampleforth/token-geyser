@@ -222,7 +222,7 @@ contract TokenGeyser is
 
     /**
      * @notice Unstakes a certain amount of previously deposited tokens. User also receives their
-     * alotted number of distribution tokens.
+     * allotted number of distribution tokens.
      * @param amount Number of deposit tokens to unstake / withdraw.
      */
     function unstake(
@@ -348,7 +348,7 @@ contract TokenGeyser is
 
     /**
      * @param addr The user to look up staking information for.
-     * @return The number of staking tokens deposited for addr.
+     * @return The number of staking tokens deposited for address.
      */
     function totalStakedFor(address addr) public view returns (uint256) {
         return
@@ -429,9 +429,9 @@ contract TokenGeyser is
     }
 
     /**
-     * @dev This funcion allows the contract owner to add more locked distribution tokens, along
+     * @dev This function allows the contract owner to add more locked distribution tokens, along
      *      with the associated "unlock schedule". These locked tokens immediately begin unlocking
-     *      linearly over the duraction of durationSec timeframe.
+     *      linearly over the duration of durationSec time frame.
      * @param amount Number of distribution tokens to lock. These are transferred from the caller.
      * @param durationSec Length of time to linear unlock the tokens.
      */
@@ -550,7 +550,7 @@ contract TokenGeyser is
     }
 
     /**
-     * @dev Returns the number of unlockable shares from a given schedule. The returned value
+     * @dev Returns the number of unlock-able shares from a given schedule. The returned value
      *      depends on the time since the last unlock. This function updates schedule accounting,
      *      but does not actually transfer any tokens.
      * @param s Index of the unlock schedule.
