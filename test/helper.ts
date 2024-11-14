@@ -1,5 +1,4 @@
-import { ethers } from "hardhat";
-import { promisify } from "util";
+import hre, { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
 
 const AMPL_DECIMALS = 9;
@@ -81,6 +80,14 @@ async function printStatus(dist) {
   // dist.unlockSchedules.staticCall(1)
 }
 
+async function deployGeyser(owner, params) {
+  const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
+  const dist = await upgrades.deployProxy(TokenGeyser.connect(owner), params, {
+    initializer: "init(address,address,address,uint256,uint256,uint256,uint256)",
+  });
+  return dist;
+}
+
 module.exports = {
   checkAmplAprox,
   checkSharesAprox,
@@ -89,4 +96,5 @@ module.exports = {
   TimeHelpers,
   printMethodOutput,
   printStatus,
+  deployGeyser,
 };
