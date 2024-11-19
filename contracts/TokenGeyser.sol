@@ -203,9 +203,9 @@ contract TokenGeyser is
         _updateAccounting();
 
         // 1. User Accounting
-        UserTotals storage totals = userTotals[msg.sender];
-        totals.stakingShares = totals.stakingShares.add(mintedStakingShares);
-        totals.lastAccountingTimestampSec = block.timestamp;
+        UserTotals storage user = userTotals[msg.sender];
+        user.stakingShares = user.stakingShares.add(mintedStakingShares);
+        user.lastAccountingTimestampSec = block.timestamp;
 
         Stake memory newStake = Stake(mintedStakingShares, block.timestamp);
         userStakes[msg.sender].push(newStake);
@@ -243,7 +243,7 @@ contract TokenGeyser is
         );
 
         // 1. User Accounting
-        UserTotals storage totals = userTotals[msg.sender];
+        UserTotals storage user = userTotals[msg.sender];
         Stake[] storage accountStakes = userStakes[msg.sender];
 
         // Redeem from most recent stake and go backwards in time.
@@ -282,12 +282,12 @@ contract TokenGeyser is
                 sharesLeftToBurn = 0;
             }
         }
-        totals.stakingShareSeconds = totals.stakingShareSeconds.sub(
+        user.stakingShareSeconds = user.stakingShareSeconds.sub(
             stakingShareSecondsToBurn
         );
-        totals.stakingShares = totals.stakingShares.sub(stakingSharesToBurn);
+        user.stakingShares = user.stakingShares.sub(stakingSharesToBurn);
         // Already set in updateAccounting
-        // totals.lastAccountingTimestampSec = block.timestamp;
+        // user.lastAccountingTimestampSec = block.timestamp;
 
         // 2. Global Accounting
         totalStakingShareSeconds = totalStakingShareSeconds.sub(
@@ -497,26 +497,24 @@ contract TokenGeyser is
         lastAccountingTimestampSec = block.timestamp;
 
         // User Accounting
-        UserTotals storage totals = userTotals[msg.sender];
+        UserTotals storage user = userTotals[msg.sender];
         uint256 newUserStakingShareSeconds = block
             .timestamp
-            .sub(totals.lastAccountingTimestampSec)
-            .mul(totals.stakingShares);
-        totals.stakingShareSeconds = totals.stakingShareSeconds.add(
+            .sub(user.lastAccountingTimestampSec)
+            .mul(user.stakingShares);
+        user.stakingShareSeconds = user.stakingShareSeconds.add(
             newUserStakingShareSeconds
         );
-        totals.lastAccountingTimestampSec = block.timestamp;
+        user.lastAccountingTimestampSec = block.timestamp;
 
         uint256 totalUserRewards = (totalStakingShareSeconds > 0)
-            ? totalUnlocked().mul(totals.stakingShareSeconds).div(
-                totalStakingShareSeconds
-            )
+            ? totalUnlocked().mul(user.stakingShareSeconds).div(totalStakingShareSeconds)
             : 0;
 
         return (
             totalLocked(),
             totalUnlocked(),
-            totals.stakingShareSeconds,
+            user.stakingShareSeconds,
             totalStakingShareSeconds,
             totalUserRewards,
             block.timestamp
