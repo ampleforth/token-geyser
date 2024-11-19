@@ -126,7 +126,7 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).unstake($AMPL(30));
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(20));
         expect(
-          await dist.totalStakedFor.staticCall(await anotherAccount.getAddress()),
+          await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(20));
         checkAmplAprox(await totalRewardsFor(anotherAccount), 40);
       });
@@ -173,7 +173,7 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).unstake($AMPL(250));
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(250));
         expect(
-          await dist.totalStakedFor.staticCall(await anotherAccount.getAddress()),
+          await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(250));
         checkAmplAprox(await totalRewardsFor(anotherAccount), 625); // (.5 * .75 * 1000) + 250
       });
@@ -223,7 +223,7 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).unstake($AMPL(30));
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(70));
         expect(
-          await dist.totalStakedFor.staticCall(await anotherAccount.getAddress()),
+          await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(70));
         checkAmplAprox(await totalRewardsFor(anotherAccount), 40.8);
       });
@@ -303,9 +303,9 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).unstake($AMPL(30));
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(70));
         expect(
-          await dist.totalStakedFor.staticCall(await anotherAccount.getAddress()),
+          await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(20));
-        expect(await dist.totalStakedFor.staticCall(await owner.getAddress())).to.eq(
+        expect(await dist.totalStakedBy.staticCall(await owner.getAddress())).to.eq(
           $AMPL(50),
         );
         checkAmplAprox(await totalRewardsFor(anotherAccount), 18.24);
@@ -348,8 +348,8 @@ describe("unstaking", function () {
       it("should update the total staked and rewards", async function () {
         await dist.connect(anotherAccount).unstake($AMPL(10000));
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(8000));
-        expect(await dist.totalStakedFor.staticCall(ethers.ZeroAddress)).to.eq($AMPL(0));
-        expect(await dist.totalStakedFor.staticCall(await owner.getAddress())).to.eq(
+        expect(await dist.totalStakedBy.staticCall(ethers.ZeroAddress)).to.eq($AMPL(0));
+        expect(await dist.totalStakedBy.staticCall(await owner.getAddress())).to.eq(
           $AMPL(8000),
         );
         checkAmplAprox(await totalRewardsFor(anotherAccount), 0);
@@ -357,9 +357,9 @@ describe("unstaking", function () {
         await dist.unstake($AMPL(8000));
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(0));
         expect(
-          await dist.totalStakedFor.staticCall(await anotherAccount.getAddress()),
+          await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(0));
-        expect(await dist.totalStakedFor.staticCall(await owner.getAddress())).to.eq(
+        expect(await dist.totalStakedBy.staticCall(await owner.getAddress())).to.eq(
           $AMPL(0),
         );
         checkAmplAprox(await totalRewardsFor(anotherAccount), 0);

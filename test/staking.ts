@@ -163,7 +163,7 @@ describe("staking", function () {
       it("should update the total staked", async function () {
         await dist.stake($AMPL(100));
         expect(await dist.totalStaked()).to.equal($AMPL(100));
-        expect(await dist.totalStakedFor(await owner.getAddress())).to.equal($AMPL(100));
+        expect(await dist.totalStakedBy(await owner.getAddress())).to.equal($AMPL(100));
         expect(await dist.totalStakingShares()).to.equal(
           $AMPL(100) * InitialSharesPerToken,
         );
@@ -187,10 +187,10 @@ describe("staking", function () {
       });
       it("should update the total staked", async function () {
         expect(await dist.totalStaked()).to.equal($AMPL(200));
-        expect(await dist.totalStakedFor(await anotherAccount.getAddress())).to.equal(
+        expect(await dist.totalStakedBy(await anotherAccount.getAddress())).to.equal(
           $AMPL(50),
         );
-        expect(await dist.totalStakedFor(await owner.getAddress())).to.equal($AMPL(150));
+        expect(await dist.totalStakedBy(await owner.getAddress())).to.equal($AMPL(150));
         expect(await dist.totalStakingShares()).to.equal(
           $AMPL(200) * InitialSharesPerToken,
         );
@@ -210,10 +210,10 @@ describe("staking", function () {
       });
       it("should updated the total staked shares", async function () {
         expect(await dist.totalStaked()).to.equal($AMPL(250));
-        expect(await dist.totalStakedFor(await anotherAccount.getAddress())).to.equal(
+        expect(await dist.totalStakedBy(await anotherAccount.getAddress())).to.equal(
           $AMPL(100),
         );
-        expect(await dist.totalStakedFor(await owner.getAddress())).to.equal($AMPL(150));
+        expect(await dist.totalStakedBy(await owner.getAddress())).to.equal($AMPL(150));
         expect(await dist.totalStakingShares()).to.equal(
           $AMPL(125) * InitialSharesPerToken,
         );
@@ -246,10 +246,10 @@ describe("staking", function () {
       });
       it("should updated the total staked shares", async function () {
         expect(await dist.totalStaked()).to.equal($AMPL(175));
-        expect(await dist.totalStakedFor(await anotherAccount.getAddress())).to.equal(
+        expect(await dist.totalStakedBy(await anotherAccount.getAddress())).to.equal(
           $AMPL(25),
         );
-        expect(await dist.totalStakedFor(await owner.getAddress())).to.equal($AMPL(150));
+        expect(await dist.totalStakedBy(await owner.getAddress())).to.equal($AMPL(150));
         expect(await dist.totalStakingShares()).to.equal(
           $AMPL(350) * InitialSharesPerToken,
         );

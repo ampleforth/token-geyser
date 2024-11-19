@@ -217,7 +217,7 @@ contract TokenGeyser is
 
         // interactions
         stakingPool.token().safeTransferFrom(msg.sender, address(stakingPool), amount);
-        emit Staked(msg.sender, amount, totalStakedFor(msg.sender));
+        emit Staked(msg.sender, amount, totalStakedBy(msg.sender));
     }
 
     /**
@@ -233,7 +233,7 @@ contract TokenGeyser is
         // checks
         require(amount > 0, "TokenGeyser: unstake amount is zero");
         require(
-            totalStakedFor(msg.sender) >= amount,
+            totalStakedBy(msg.sender) >= amount,
             "TokenGeyser: unstake amount is greater than total user stakes"
         );
         uint256 stakingSharesToBurn = totalStakingShares.mul(amount).div(totalStaked());
@@ -301,7 +301,7 @@ contract TokenGeyser is
         stakingPool.transfer(msg.sender, amount);
         unlockedPool.transfer(msg.sender, rewardAmount);
 
-        emit Unstaked(msg.sender, amount, totalStakedFor(msg.sender));
+        emit Unstaked(msg.sender, amount, totalStakedBy(msg.sender));
         emit TokensClaimed(msg.sender, rewardAmount);
 
         require(
@@ -350,7 +350,7 @@ contract TokenGeyser is
      * @param addr The user to look up staking information for.
      * @return The number of staking tokens deposited for address.
      */
-    function totalStakedFor(address addr) public view returns (uint256) {
+    function totalStakedBy(address addr) public view returns (uint256) {
         return
             totalStakingShares > 0
                 ? totalStaked().mul(userTotals[addr].stakingShares).div(
