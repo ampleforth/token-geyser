@@ -1,39 +1,48 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.24;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ITokenPool } from "./ITokenPool.sol";
 
 /**
  * @title A simple holder of tokens.
  * This is a simple contract to hold tokens. It's useful in the case where a separate contract
  * needs to hold multiple distinct pools of the same token.
  */
-contract TokenPool is Ownable {
+contract TokenPool is ITokenPool, OwnableUpgradeable {
+    using SafeERC20 for IERC20;
     IERC20 public token;
 
-    constructor(IERC20 _token) Ownable(msg.sender) {
-        token = _token;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
-    function balance() public view returns (uint256) {
+    function init(IERC20 token_) public initializer {
+        __Ownable_init(msg.sender);
+        token = token_;
+    }
+
+    function balance() public view override returns (uint256) {
         return token.balanceOf(address(this));
     }
 
-    function transfer(address to, uint256 value) external onlyOwner returns (bool) {
-        return token.transfer(to, value);
+    function transfer(address to, uint256 value) external override onlyOwner {
+        token.safeTransfer(to, value);
     }
 
     function rescueFunds(
         address tokenToRescue,
         address to,
         uint256 amount
-    ) external onlyOwner returns (bool) {
+    ) external override onlyOwner {
         require(
             address(token) != tokenToRescue,
             "TokenPool: Cannot claim token held by the contract"
         );
 
-        return IERC20(tokenToRescue).transfer(to, amount);
+        IERC20(tokenToRescue).safeTransfer(to, amount);
     }
 }

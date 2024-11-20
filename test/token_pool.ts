@@ -1,7 +1,7 @@
-import { ethers, waffle } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { SignerWithAddress } from "ethers";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 let owner: SignerWithAddress, anotherAccount: SignerWithAddress;
 
@@ -14,7 +14,13 @@ describe("TokenPool", function () {
     const otherToken = await MockERC20.deploy(2000);
 
     const TokenPool = await ethers.getContractFactory("TokenPool");
-    const tokenPool = await TokenPool.deploy(token.target);
+    const tokenPool = await upgrades.deployProxy(
+      TokenPool.connect(owner),
+      [token.target],
+      {
+        initializer: "init(address)",
+      },
+    );
 
     return { token, otherToken, tokenPool, owner, anotherAccount };
   }

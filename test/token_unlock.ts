@@ -1,17 +1,21 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import {
   TimeHelpers,
   $AMPL,
   invokeRebase,
   checkAmplAprox,
   checkSharesAprox,
-  setTimeForNextTransaction,
+  deployGeyser,
 } from "../test/helper";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { SignerWithAddress } from "ethers";
 
-let ampl: any, dist: any, owner: SignerWithAddress, anotherAccount: SignerWithAddress;
+let ampl: any,
+  tokenPoolImpl: any,
+  dist: any,
+  owner: SignerWithAddress,
+  anotherAccount: SignerWithAddress;
 const InitialSharesPerToken = BigInt(10 ** 6);
 const ONE_YEAR = 365 * 24 * 3600;
 const START_BONUS = 50;
@@ -25,17 +29,20 @@ async function setupContracts() {
   await ampl.initialize(await owner.getAddress());
   await ampl.setMonetaryPolicy(await owner.getAddress());
 
-  const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
-  dist = await TokenGeyser.deploy(
+  const TokenPool = await ethers.getContractFactory("TokenPool");
+  const tokenPoolImpl = await TokenPool.deploy();
+
+  dist = await deployGeyser(owner, [
+    tokenPoolImpl.target,
     ampl.target,
     ampl.target,
     10,
     START_BONUS,
     BONUS_PERIOD,
     InitialSharesPerToken,
-  );
+  ]);
 
-  return { ampl, dist, owner, anotherAccount };
+  return { ampl, tokenPoolImpl, dist, owner, anotherAccount };
 }
 
 async function checkAvailableToUnlock(dist, v) {
@@ -47,42 +54,44 @@ async function checkAvailableToUnlock(dist, v) {
 
 describe("LockedPool", function () {
   beforeEach("setup contracts", async function () {
-    ({ ampl, dist, owner, anotherAccount } = await loadFixture(setupContracts));
+    ({ ampl, tokenPoolImpl, dist, owner, anotherAccount } = await loadFixture(
+      setupContracts,
+    ));
   });
 
-  describe("getDistributionToken", function () {
+  describe("distributionToken", function () {
     it("should return the staking token", async function () {
-      expect(await dist.getDistributionToken.staticCall()).to.equal(ampl.target);
+      expect(await dist.distributionToken.staticCall()).to.equal(ampl.target);
     });
   });
 
   describe("lockTokens", function () {
     describe("when not approved", function () {
       it("should fail", async function () {
-        const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
-        const d = await TokenGeyser.deploy(
+        const d = await deployGeyser(owner, [
+          tokenPoolImpl.target,
           ampl.target,
           ampl.target,
           5n,
           START_BONUS,
           BONUS_PERIOD,
           InitialSharesPerToken,
-        );
+        ]);
         await expect(d.lockTokens($AMPL(10), ONE_YEAR)).to.be.reverted;
       });
     });
 
     describe("when number of unlock schedules exceeds the maxUnlockSchedules", function () {
       it("should fail", async function () {
-        const TokenGeyser = await ethers.getContractFactory("TokenGeyser");
-        const d = await TokenGeyser.deploy(
+        const d = await deployGeyser(owner, [
+          tokenPoolImpl.target,
           ampl.target,
           ampl.target,
           5n,
           START_BONUS,
           BONUS_PERIOD,
           InitialSharesPerToken,
-        );
+        ]);
         await ampl.approve(d.target, $AMPL(100));
         for (let i = 0; i < 5; i++) {
           await d.lockTokens($AMPL(10), ONE_YEAR);
@@ -462,7 +471,7 @@ describe("LockedPool", function () {
       _r = await dist.updateAccounting.staticCall({ from: owner });
       _t = await TimeHelpers.currentTime();
       await ampl.approve(dist.target, $AMPL(300));
-      await dist.stake($AMPL(100), "0x");
+      await dist.stake($AMPL(100));
       await dist.lockTokens($AMPL(100), ONE_YEAR);
       await TimeHelpers.increaseTime(ONE_YEAR / 2);
       await dist.lockTokens($AMPL(100), ONE_YEAR);
