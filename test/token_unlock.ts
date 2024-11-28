@@ -5,6 +5,7 @@ import {
   TimeHelpers,
   $AMPL,
   invokeRebase,
+  checkAprox,
   checkAmplAprox,
   checkSharesAprox,
   deployGeyser,
@@ -480,11 +481,14 @@ describe("LockedPool", function () {
       await ampl.approve(dist.target, $AMPL(300));
       await dist.stake($AMPL(100));
       await dist.lockTokens($AMPL(100), ONE_YEAR);
+      checkAprox(await dist.unlockDuration(), ONE_YEAR, 86400);
       await TimeHelpers.increaseTime(ONE_YEAR / 2);
       await dist.lockTokens($AMPL(100), ONE_YEAR);
+      checkAprox(await dist.unlockDuration(), ONE_YEAR, 86400);
       await ampl.connect(anotherAccount).approve(dist.target, $AMPL(200));
       await dist.connect(anotherAccount).stake($AMPL(200));
       await TimeHelpers.increaseTime(ONE_YEAR / 10);
+      checkAprox(await dist.unlockDuration(), (ONE_YEAR * 9) / 10, 86400);
     });
 
     describe("when user history does exist", async function () {
@@ -496,7 +500,7 @@ describe("LockedPool", function () {
           checkAmplAprox(r[1], 70);
           expect(r[2]).to.eq($AMPL(100));
           expect(r[3]).to.eq($AMPL(300));
-          checkAmplAprox(r[4], 52.5);
+          checkAmplAprox(r[4], 26.25);
           const timeElapsed = t - _t;
           expect(r[5] - _r[5])
             .to.gte(timeElapsed - 1)
@@ -515,7 +519,7 @@ describe("LockedPool", function () {
           checkAmplAprox(r[1], 70);
           expect(r[2]).to.eq($AMPL(200));
           expect(r[3]).to.eq($AMPL(400));
-          checkAmplAprox(r[4], 52.5);
+          checkAmplAprox(r[4], 26.25);
           const timeElapsed = t - _t;
           expect(r[5] - _r[5])
             .to.gte(timeElapsed - 1)
@@ -569,6 +573,7 @@ describe("LockedPool", function () {
           await ampl.approve(dist.target, $AMPL(100));
           await dist.stake($AMPL(100));
           await TimeHelpers.increaseTime(ONE_YEAR / 4);
+          checkAprox(await dist.unlockDuration(), 0.65 * ONE_YEAR, 86400);
           await expect(await dist.unstake($AMPL(200)))
             .to.emit(dist, "TokensClaimed")
             .withArgs(await owner.getAddress(), "73333353473");
@@ -576,6 +581,7 @@ describe("LockedPool", function () {
           await expect(await dist.connect(anotherAccount).unstake($AMPL(200)))
             .to.emit(dist, "TokensClaimed")
             .withArgs(await anotherAccount.getAddress(), "126666646527");
+          expect(await dist.unlockDuration()).to.eq(0);
         });
       });
     });

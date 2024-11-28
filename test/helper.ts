@@ -22,8 +22,8 @@ function checkSharesAprox(x, y) {
 
 function checkAprox(x, y, delta_) {
   const delta = BigInt(delta_);
-  const upper = y + delta;
-  const lower = y - delta;
+  const upper = BigInt(y) + delta;
+  const lower = BigInt(y) - delta;
   expect(x).to.gte(lower).to.lte(upper);
 }
 
@@ -89,6 +89,7 @@ async function deployGeyser(owner, params) {
 }
 
 module.exports = {
+  checkAprox,
   checkAmplAprox,
   checkSharesAprox,
   invokeRebase,

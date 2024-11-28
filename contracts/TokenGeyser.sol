@@ -60,6 +60,7 @@ contract TokenGeyser is
     // Time-bonus params
     //
     uint256 public constant BONUS_DECIMALS = 2;
+    uint256 public constant BONUS_HUNDRED_PERC = 10 ** BONUS_DECIMALS;
     uint256 public startBonus;
     uint256 public bonusPeriodSec;
 
@@ -248,6 +249,7 @@ contract TokenGeyser is
         uint256 stakingShareSecondsToBurn = 0;
         uint256 sharesLeftToBurn = stakingSharesToBurn;
         uint256 rewardAmount = 0;
+        uint256 totalUnlocked_ = totalUnlocked();
         while (sharesLeftToBurn > 0) {
             Stake storage lastStake = accountStakes[accountStakes.length - 1];
             uint256 stakeTimeSec = block.timestamp.sub(lastStake.timestampSec);
@@ -258,7 +260,9 @@ contract TokenGeyser is
                 rewardAmount = computeNewReward(
                     rewardAmount,
                     newStakingShareSecondsToBurn,
-                    stakeTimeSec
+                    totalStakingShareSeconds,
+                    stakeTimeSec,
+                    totalUnlocked_
                 );
                 stakingShareSecondsToBurn = stakingShareSecondsToBurn.add(
                     newStakingShareSecondsToBurn
@@ -271,7 +275,9 @@ contract TokenGeyser is
                 rewardAmount = computeNewReward(
                     rewardAmount,
                     newStakingShareSecondsToBurn,
-                    stakeTimeSec
+                    totalStakingShareSeconds,
+                    stakeTimeSec,
+                    totalUnlocked_
                 );
                 stakingShareSecondsToBurn = stakingShareSecondsToBurn.add(
                     newStakingShareSecondsToBurn
@@ -318,29 +324,32 @@ contract TokenGeyser is
      *                            unstake op. Any bonuses are already applied.
      * @param stakingShareSeconds The stakingShare-seconds that are being burned for new
      *                            distribution tokens.
+     * @param totalStakingShareSeconds_ The total stakingShare-seconds.
      * @param stakeTimeSec Length of time for which the tokens were staked. Needed to calculate
      *                     the time-bonus.
+     * @param totalUnlocked_ The reward tokens currently unlocked.
      * @return Updated amount of distribution tokens to award, with any bonus included on the
      *         newly added tokens.
      */
     function computeNewReward(
         uint256 currentRewardTokens,
         uint256 stakingShareSeconds,
-        uint256 stakeTimeSec
+        uint256 totalStakingShareSeconds_,
+        uint256 stakeTimeSec,
+        uint256 totalUnlocked_
     ) public view returns (uint256) {
-        uint256 newRewardTokens = totalUnlocked().mul(stakingShareSeconds).div(
-            totalStakingShareSeconds
-        );
+        uint256 newRewardTokens = (totalStakingShareSeconds_ > 0)
+            ? totalUnlocked_.mul(stakingShareSeconds).div(totalStakingShareSeconds_)
+            : 0;
 
         if (stakeTimeSec >= bonusPeriodSec) {
             return currentRewardTokens.add(newRewardTokens);
         }
 
-        uint256 oneHundredPct = 10 ** BONUS_DECIMALS;
         uint256 bonusedReward = startBonus
-            .add(oneHundredPct.sub(startBonus).mul(stakeTimeSec).div(bonusPeriodSec))
+            .add(BONUS_HUNDRED_PERC.sub(startBonus).mul(stakeTimeSec).div(bonusPeriodSec))
             .mul(newRewardTokens)
-            .div(oneHundredPct);
+            .div(BONUS_HUNDRED_PERC);
         return currentRewardTokens.add(bonusedReward);
     }
 
@@ -448,12 +457,13 @@ contract TokenGeyser is
         uint256 userStake = totalStakedBy(addr).add(additionalStake);
         uint256 totalStaked_ = totalStaked().add(additionalStake);
 
-        // Compute user's stake and rewards
-        uint256 userRewards = 0;
+        // Compute user's final stake share and rewards
+        uint256 rewardAmount = 0;
         {
             uint256 additionalStakingShareSeconds = durationSec.mul(
                 computeStakingShares(additionalStake)
             );
+
             uint256 newStakingShareSeconds = block
                 .timestamp
                 .sub(lastAccountingTimestampSec)
@@ -462,20 +472,26 @@ contract TokenGeyser is
             uint256 totalStakingShareSeconds_ = totalStakingShareSeconds
                 .add(newStakingShareSeconds)
                 .add(additionalStakingShareSeconds);
-            uint256 newUserStakingShareSeconds = block
-                .timestamp
-                .sub(userTotals[addr].lastAccountingTimestampSec)
-                .add(durationSec)
-                .mul(userTotals[addr].stakingShares);
-            uint256 userStakingShareSeconds = userTotals[addr]
-                .stakingShareSeconds
-                .add(newUserStakingShareSeconds)
-                .add(additionalStakingShareSeconds);
-            userRewards = (totalStakingShareSeconds_ > 0)
-                ? totalUnlocked_.mul(userStakingShareSeconds).div(
-                    totalStakingShareSeconds_
-                )
-                : 0;
+
+            Stake[] memory accountStakes = userStakes[addr];
+            for (uint256 s = 0; s < accountStakes.length; s++) {
+                Stake memory stake_ = accountStakes[s];
+                uint256 stakeDurationSec = endTimestampSec.sub(stake_.timestampSec);
+                rewardAmount = computeNewReward(
+                    rewardAmount,
+                    stake_.stakingShares.mul(stakeDurationSec),
+                    totalStakingShareSeconds_,
+                    durationSec,
+                    totalUnlocked_
+                );
+            }
+            rewardAmount = computeNewReward(
+                rewardAmount,
+                additionalStakingShareSeconds,
+                totalStakingShareSeconds_,
+                durationSec,
+                totalUnlocked_
+            );
         }
 
         return (
@@ -483,7 +499,7 @@ contract TokenGeyser is
             totalUnlocked_,
             userStake,
             totalStaked_,
-            userRewards,
+            rewardAmount,
             endTimestampSec
         );
     }
