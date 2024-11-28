@@ -6,6 +6,7 @@ import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/P
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
 import { ITokenPool } from "./ITokenPool.sol";
 
@@ -38,6 +39,7 @@ contract TokenGeyser is
 {
     using SafeMathCompatibility for uint256;
     using SafeERC20 for IERC20;
+    using Math for uint256;
 
     //-------------------------------------------------------------------------
     // Events
@@ -411,6 +413,21 @@ contract TokenGeyser is
             (totalStakingShares > 0)
                 ? totalStakingShares.mul(amount).div(totalStaked())
                 : amount.mul(initialSharesPerToken);
+    }
+
+    /**
+     * @return durationSec The amount of time in seconds when all the reward tokens unlock.
+     */
+    function unlockDuration() external view returns (uint256 durationSec) {
+        durationSec = 0;
+        for (uint256 s = 0; s < unlockSchedules.length; s++) {
+            durationSec = Math.max(
+                (block.timestamp < unlockSchedules[s].endAtSec)
+                    ? unlockSchedules[s].endAtSec - block.timestamp
+                    : 0,
+                durationSec
+            );
+        }
     }
 
     /**
