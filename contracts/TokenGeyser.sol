@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
@@ -37,6 +38,7 @@ contract TokenGeyser is
     ReentrancyGuardUpgradeable
 {
     using SafeMathCompatibility for uint256;
+    using Math for uint256;
     using SafeERC20 for IERC20;
 
     //-------------------------------------------------------------------------
@@ -353,8 +355,10 @@ contract TokenGeyser is
     function totalStakedBy(address addr) public view returns (uint256) {
         return
             totalStakingShares > 0
-                ? totalStaked().mul(userTotals[addr].stakingShares).div(
-                    totalStakingShares
+                ? totalStaked().mulDiv(
+                    userTotals[addr].stakingShares,
+                    totalStakingShares,
+                    Math.Rounding.Ceil
                 )
                 : 0;
     }
