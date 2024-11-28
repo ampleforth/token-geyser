@@ -45,7 +45,7 @@ async function setupContracts() {
 }
 
 async function totalRewardsFor(account) {
-  const r = await dist.connect(account).updateAccounting.staticCall();
+  const r = await dist.previewRewards.staticCall(0, await account.getAddress(), 0);
   return r[4];
 }
 

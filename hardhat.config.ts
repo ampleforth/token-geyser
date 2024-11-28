@@ -66,6 +66,7 @@ export default {
             enabled: true,
             runs: 750,
           },
+          viaIR: true,
         },
       },
     ],

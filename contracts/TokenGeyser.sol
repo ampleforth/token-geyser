@@ -195,9 +195,7 @@ contract TokenGeyser is
             "TokenGeyser: Staking shares exist, but no staking tokens do"
         );
 
-        uint256 mintedStakingShares = (totalStakingShares > 0)
-            ? totalStakingShares.mul(amount).div(totalStaked())
-            : amount.mul(initialSharesPerToken);
+        uint256 mintedStakingShares = computeStakingShares(amount);
         require(mintedStakingShares > 0, "TokenGeyser: Stake amount is too small");
 
         _updateAccounting();
@@ -369,20 +367,9 @@ contract TokenGeyser is
     /**
      * @notice A globally callable function to update the accounting state of the system.
      *      Global state and state for the caller are updated.
-     * @return [0] balance of the locked pool
-     * @return [1] balance of the unlocked pool
-     * @return [2] caller's staking share seconds
-     * @return [3] global staking share seconds
-     * @return [4] Rewards caller has accumulated, optimistically assumes max time-bonus.
-     * @return [5] block timestamp
      */
-    function updateAccounting()
-        external
-        nonReentrant
-        whenNotPaused
-        returns (uint256, uint256, uint256, uint256, uint256, uint256)
-    {
-        return _updateAccounting();
+    function updateAccounting() external nonReentrant whenNotPaused {
+        _updateAccounting();
     }
 
     /**
@@ -407,12 +394,98 @@ contract TokenGeyser is
     }
 
     /**
-     * @notice Moves distribution tokens from the locked pool to the unlocked pool, according to the
-     *      previously defined unlock schedules. Publicly callable.
-     * @return Number of newly unlocked distribution tokens.
+     * @param amount The amounted of tokens staked.
+     * @return Total number staking shares minted to the user.
      */
-    function unlockTokens() external nonReentrant whenNotPaused returns (uint256) {
-        return _unlockTokens();
+    function computeStakingShares(uint256 amount) public view returns (uint256) {
+        return
+            (totalStakingShares > 0)
+                ? totalStakingShares.mul(amount).div(totalStaked())
+                : amount.mul(initialSharesPerToken);
+    }
+
+    /**
+     * @notice Computes rewards and pool stats after `durationSec` has elapsed.
+     * @param durationSec The amount of time in seconds the user continues to participate in the program.
+     * @param addr The beneficiary wallet address.
+     * @param additionalStake Any additional stake the user makes at the current block.
+     * @return [0] Total rewards locked.
+     * @return [1] Total rewards unlocked.
+     * @return [2] Amount staked by the user.
+     * @return [3] Total amount staked by all users.
+     * @return [4] Total rewards unlocked.
+     * @return [5] Timestamp after `durationSec`.
+     */
+    function previewRewards(
+        uint256 durationSec,
+        address addr,
+        uint256 additionalStake
+    ) external view returns (uint256, uint256, uint256, uint256, uint256, uint256) {
+        uint256 endTimestampSec = block.timestamp.add(durationSec);
+
+        // Compute unlock schedule
+        uint256 unlockedTokens = 0;
+        {
+            uint256 unlockedShares = 0;
+            for (uint256 s = 0; s < unlockSchedules.length; s++) {
+                UnlockSchedule memory schedule = unlockSchedules[s];
+                uint256 unlockedScheduleShares = (endTimestampSec >= schedule.endAtSec)
+                    ? schedule.initialLockedShares.sub(schedule.unlockedShares)
+                    : endTimestampSec
+                        .sub(schedule.lastUnlockTimestampSec)
+                        .mul(schedule.initialLockedShares)
+                        .div(schedule.durationSec);
+                unlockedShares = unlockedShares.add(unlockedScheduleShares);
+            }
+            unlockedTokens = (totalLockedShares > 0)
+                ? unlockedShares.mul(totalLocked()).div(totalLockedShares)
+                : 0;
+        }
+        uint256 totalLocked_ = totalLocked().sub(unlockedTokens);
+        uint256 totalUnlocked_ = totalUnlocked().add(unlockedTokens);
+
+        // Compute new accounting state
+        uint256 userStake = totalStakedBy(addr).add(additionalStake);
+        uint256 totalStaked_ = totalStaked().add(additionalStake);
+
+        // Compute user's stake and rewards
+        uint256 userRewards = 0;
+        {
+            uint256 additionalStakingShareSeconds = durationSec.mul(
+                computeStakingShares(additionalStake)
+            );
+            uint256 newStakingShareSeconds = block
+                .timestamp
+                .sub(lastAccountingTimestampSec)
+                .add(durationSec)
+                .mul(totalStakingShares);
+            uint256 totalStakingShareSeconds_ = totalStakingShareSeconds
+                .add(newStakingShareSeconds)
+                .add(additionalStakingShareSeconds);
+            uint256 newUserStakingShareSeconds = block
+                .timestamp
+                .sub(userTotals[addr].lastAccountingTimestampSec)
+                .add(durationSec)
+                .mul(userTotals[addr].stakingShares);
+            uint256 userStakingShareSeconds = userTotals[addr]
+                .stakingShareSeconds
+                .add(newUserStakingShareSeconds)
+                .add(additionalStakingShareSeconds);
+            userRewards = (totalStakingShareSeconds_ > 0)
+                ? totalUnlocked_.mul(userStakingShareSeconds).div(
+                    totalStakingShareSeconds_
+                )
+                : 0;
+        }
+
+        return (
+            totalLocked_,
+            totalUnlocked_,
+            userStake,
+            totalStaked_,
+            userRewards,
+            endTimestampSec
+        );
     }
 
     //-------------------------------------------------------------------------
@@ -482,10 +555,7 @@ contract TokenGeyser is
     /**
      * @dev Updates time-dependent global storage state.
      */
-    function _updateAccounting()
-        private
-        returns (uint256, uint256, uint256, uint256, uint256, uint256)
-    {
+    function _updateAccounting() private {
         _unlockTokens();
 
         // Global accounting
@@ -506,19 +576,6 @@ contract TokenGeyser is
             newUserStakingShareSeconds
         );
         user.lastAccountingTimestampSec = block.timestamp;
-
-        uint256 totalUserRewards = (totalStakingShareSeconds > 0)
-            ? totalUnlocked().mul(user.stakingShareSeconds).div(totalStakingShareSeconds)
-            : 0;
-
-        return (
-            totalLocked(),
-            totalUnlocked(),
-            user.stakingShareSeconds,
-            totalStakingShareSeconds,
-            totalUserRewards,
-            block.timestamp
-        );
     }
 
     /**
