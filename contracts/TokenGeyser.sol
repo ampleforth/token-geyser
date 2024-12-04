@@ -7,6 +7,7 @@ import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeMathCompatibility } from "./_utils/SafeMathCompatibility.sol";
 import { ITokenPool } from "./ITokenPool.sol";
 
@@ -40,6 +41,7 @@ contract TokenGeyser is
     using SafeMathCompatibility for uint256;
     using Math for uint256;
     using SafeERC20 for IERC20;
+    using Math for uint256;
 
     //-------------------------------------------------------------------------
     // Events
@@ -62,6 +64,7 @@ contract TokenGeyser is
     // Time-bonus params
     //
     uint256 public constant BONUS_DECIMALS = 2;
+    uint256 public constant BONUS_HUNDRED_PERC = 10 ** BONUS_DECIMALS;
     uint256 public startBonus;
     uint256 public bonusPeriodSec;
 
@@ -197,9 +200,7 @@ contract TokenGeyser is
             "TokenGeyser: Staking shares exist, but no staking tokens do"
         );
 
-        uint256 mintedStakingShares = (totalStakingShares > 0)
-            ? totalStakingShares.mul(amount).div(totalStaked())
-            : amount.mul(initialSharesPerToken);
+        uint256 mintedStakingShares = computeStakingShares(amount);
         require(mintedStakingShares > 0, "TokenGeyser: Stake amount is too small");
 
         _updateAccounting();
@@ -252,6 +253,7 @@ contract TokenGeyser is
         uint256 stakingShareSecondsToBurn = 0;
         uint256 sharesLeftToBurn = stakingSharesToBurn;
         uint256 rewardAmount = 0;
+        uint256 totalUnlocked_ = totalUnlocked();
         while (sharesLeftToBurn > 0) {
             Stake storage lastStake = accountStakes[accountStakes.length - 1];
             uint256 stakeTimeSec = block.timestamp.sub(lastStake.timestampSec);
@@ -262,7 +264,9 @@ contract TokenGeyser is
                 rewardAmount = computeNewReward(
                     rewardAmount,
                     newStakingShareSecondsToBurn,
-                    stakeTimeSec
+                    totalStakingShareSeconds,
+                    stakeTimeSec,
+                    totalUnlocked_
                 );
                 stakingShareSecondsToBurn = stakingShareSecondsToBurn.add(
                     newStakingShareSecondsToBurn
@@ -275,7 +279,9 @@ contract TokenGeyser is
                 rewardAmount = computeNewReward(
                     rewardAmount,
                     newStakingShareSecondsToBurn,
-                    stakeTimeSec
+                    totalStakingShareSeconds,
+                    stakeTimeSec,
+                    totalUnlocked_
                 );
                 stakingShareSecondsToBurn = stakingShareSecondsToBurn.add(
                     newStakingShareSecondsToBurn
@@ -322,29 +328,32 @@ contract TokenGeyser is
      *                            unstake op. Any bonuses are already applied.
      * @param stakingShareSeconds The stakingShare-seconds that are being burned for new
      *                            distribution tokens.
+     * @param totalStakingShareSeconds_ The total stakingShare-seconds.
      * @param stakeTimeSec Length of time for which the tokens were staked. Needed to calculate
      *                     the time-bonus.
+     * @param totalUnlocked_ The reward tokens currently unlocked.
      * @return Updated amount of distribution tokens to award, with any bonus included on the
      *         newly added tokens.
      */
     function computeNewReward(
         uint256 currentRewardTokens,
         uint256 stakingShareSeconds,
-        uint256 stakeTimeSec
+        uint256 totalStakingShareSeconds_,
+        uint256 stakeTimeSec,
+        uint256 totalUnlocked_
     ) public view returns (uint256) {
-        uint256 newRewardTokens = totalUnlocked().mul(stakingShareSeconds).div(
-            totalStakingShareSeconds
-        );
+        uint256 newRewardTokens = (totalStakingShareSeconds_ > 0)
+            ? totalUnlocked_.mul(stakingShareSeconds).div(totalStakingShareSeconds_)
+            : 0;
 
         if (stakeTimeSec >= bonusPeriodSec) {
             return currentRewardTokens.add(newRewardTokens);
         }
 
-        uint256 oneHundredPct = 10 ** BONUS_DECIMALS;
         uint256 bonusedReward = startBonus
-            .add(oneHundredPct.sub(startBonus).mul(stakeTimeSec).div(bonusPeriodSec))
+            .add(BONUS_HUNDRED_PERC.sub(startBonus).mul(stakeTimeSec).div(bonusPeriodSec))
             .mul(newRewardTokens)
-            .div(oneHundredPct);
+            .div(BONUS_HUNDRED_PERC);
         return currentRewardTokens.add(bonusedReward);
     }
 
@@ -373,20 +382,9 @@ contract TokenGeyser is
     /**
      * @notice A globally callable function to update the accounting state of the system.
      *      Global state and state for the caller are updated.
-     * @return [0] balance of the locked pool
-     * @return [1] balance of the unlocked pool
-     * @return [2] caller's staking share seconds
-     * @return [3] global staking share seconds
-     * @return [4] Rewards caller has accumulated, optimistically assumes max time-bonus.
-     * @return [5] block timestamp
      */
-    function updateAccounting()
-        external
-        nonReentrant
-        whenNotPaused
-        returns (uint256, uint256, uint256, uint256, uint256, uint256)
-    {
-        return _updateAccounting();
+    function updateAccounting() external nonReentrant whenNotPaused {
+        _updateAccounting();
     }
 
     /**
@@ -411,12 +409,120 @@ contract TokenGeyser is
     }
 
     /**
-     * @notice Moves distribution tokens from the locked pool to the unlocked pool, according to the
-     *      previously defined unlock schedules. Publicly callable.
-     * @return Number of newly unlocked distribution tokens.
+     * @param amount The amounted of tokens staked.
+     * @return Total number staking shares minted to the user.
      */
-    function unlockTokens() external nonReentrant whenNotPaused returns (uint256) {
-        return _unlockTokens();
+    function computeStakingShares(uint256 amount) public view returns (uint256) {
+        return
+            (totalStakingShares > 0)
+                ? totalStakingShares.mul(amount).div(totalStaked())
+                : amount.mul(initialSharesPerToken);
+    }
+
+    /**
+     * @return durationSec The amount of time in seconds when all the reward tokens unlock.
+     */
+    function unlockDuration() external view returns (uint256 durationSec) {
+        durationSec = 0;
+        for (uint256 s = 0; s < unlockSchedules.length; s++) {
+            durationSec = Math.max(
+                (block.timestamp < unlockSchedules[s].endAtSec)
+                    ? unlockSchedules[s].endAtSec - block.timestamp
+                    : 0,
+                durationSec
+            );
+        }
+    }
+
+    /**
+     * @notice Computes rewards and pool stats after `durationSec` has elapsed.
+     * @param durationSec The amount of time in seconds the user continues to participate in the program.
+     * @param addr The beneficiary wallet address.
+     * @param additionalStake Any additional stake the user makes at the current block.
+     * @return [0] Total rewards locked.
+     * @return [1] Total rewards unlocked.
+     * @return [2] Amount staked by the user.
+     * @return [3] Total amount staked by all users.
+     * @return [4] Total rewards unlocked.
+     * @return [5] Timestamp after `durationSec`.
+     */
+    function previewRewards(
+        uint256 durationSec,
+        address addr,
+        uint256 additionalStake
+    ) external view returns (uint256, uint256, uint256, uint256, uint256, uint256) {
+        uint256 endTimestampSec = block.timestamp.add(durationSec);
+
+        // Compute unlock schedule
+        uint256 unlockedTokens = 0;
+        {
+            uint256 unlockedShares = 0;
+            for (uint256 s = 0; s < unlockSchedules.length; s++) {
+                UnlockSchedule memory schedule = unlockSchedules[s];
+                uint256 unlockedScheduleShares = (endTimestampSec >= schedule.endAtSec)
+                    ? schedule.initialLockedShares.sub(schedule.unlockedShares)
+                    : endTimestampSec
+                        .sub(schedule.lastUnlockTimestampSec)
+                        .mul(schedule.initialLockedShares)
+                        .div(schedule.durationSec);
+                unlockedShares = unlockedShares.add(unlockedScheduleShares);
+            }
+            unlockedTokens = (totalLockedShares > 0)
+                ? unlockedShares.mul(totalLocked()).div(totalLockedShares)
+                : 0;
+        }
+        uint256 totalLocked_ = totalLocked().sub(unlockedTokens);
+        uint256 totalUnlocked_ = totalUnlocked().add(unlockedTokens);
+
+        // Compute new accounting state
+        uint256 userStake = totalStakedBy(addr).add(additionalStake);
+        uint256 totalStaked_ = totalStaked().add(additionalStake);
+
+        // Compute user's final stake share and rewards
+        uint256 rewardAmount = 0;
+        {
+            uint256 additionalStakingShareSeconds = durationSec.mul(
+                computeStakingShares(additionalStake)
+            );
+
+            uint256 newStakingShareSeconds = block
+                .timestamp
+                .sub(lastAccountingTimestampSec)
+                .add(durationSec)
+                .mul(totalStakingShares);
+            uint256 totalStakingShareSeconds_ = totalStakingShareSeconds
+                .add(newStakingShareSeconds)
+                .add(additionalStakingShareSeconds);
+
+            Stake[] memory accountStakes = userStakes[addr];
+            for (uint256 s = 0; s < accountStakes.length; s++) {
+                Stake memory stake_ = accountStakes[s];
+                uint256 stakeDurationSec = endTimestampSec.sub(stake_.timestampSec);
+                rewardAmount = computeNewReward(
+                    rewardAmount,
+                    stake_.stakingShares.mul(stakeDurationSec),
+                    totalStakingShareSeconds_,
+                    durationSec,
+                    totalUnlocked_
+                );
+            }
+            rewardAmount = computeNewReward(
+                rewardAmount,
+                additionalStakingShareSeconds,
+                totalStakingShareSeconds_,
+                durationSec,
+                totalUnlocked_
+            );
+        }
+
+        return (
+            totalLocked_,
+            totalUnlocked_,
+            userStake,
+            totalStaked_,
+            rewardAmount,
+            endTimestampSec
+        );
     }
 
     //-------------------------------------------------------------------------
@@ -486,10 +592,7 @@ contract TokenGeyser is
     /**
      * @dev Updates time-dependent global storage state.
      */
-    function _updateAccounting()
-        private
-        returns (uint256, uint256, uint256, uint256, uint256, uint256)
-    {
+    function _updateAccounting() private {
         _unlockTokens();
 
         // Global accounting
@@ -510,19 +613,6 @@ contract TokenGeyser is
             newUserStakingShareSeconds
         );
         user.lastAccountingTimestampSec = block.timestamp;
-
-        uint256 totalUserRewards = (totalStakingShareSeconds > 0)
-            ? totalUnlocked().mul(user.stakingShareSeconds).div(totalStakingShareSeconds)
-            : 0;
-
-        return (
-            totalLocked(),
-            totalUnlocked(),
-            user.stakingShareSeconds,
-            totalStakingShareSeconds,
-            totalUserRewards,
-            block.timestamp
-        );
     }
 
     /**

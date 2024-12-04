@@ -5,6 +5,7 @@ import {
   TimeHelpers,
   $AMPL,
   invokeRebase,
+  checkAprox,
   checkAmplAprox,
   checkSharesAprox,
   deployGeyser,
@@ -47,8 +48,14 @@ async function setupContracts() {
 
 async function checkAvailableToUnlock(dist, v) {
   const u = await dist.totalUnlocked.staticCall();
-  const r = await dist.updateAccounting.staticCall();
-  // console.log('Total unlocked: ', u.toString(), 'total unlocked after: ', r[1].toString());
+  const from = await owner.getAddress();
+  const r = await dist.previewRewards.staticCall(0, from, 0);
+  // console.log(
+  //   "Total unlocked: ",
+  //   u.toString(),
+  //   "total unlocked after: ",
+  //   r[1].toString(),
+  // );
   checkAmplAprox(r[1] - u, v);
 }
 
@@ -465,63 +472,187 @@ describe("LockedPool", function () {
     });
   });
 
-  describe("updateAccounting", function () {
+  describe("previewRewards", function () {
     let _r, _t;
     beforeEach(async function () {
-      _r = await dist.updateAccounting.staticCall({ from: owner });
+      await ampl.transfer(anotherAccount.getAddress(), $AMPL(1000));
+      _r = await dist.previewRewards(0, await owner.getAddress(), 0);
       _t = await TimeHelpers.currentTime();
       await ampl.approve(dist.target, $AMPL(300));
       await dist.stake($AMPL(100));
       await dist.lockTokens($AMPL(100), ONE_YEAR);
+      checkAprox(await dist.unlockDuration(), ONE_YEAR, 86400);
       await TimeHelpers.increaseTime(ONE_YEAR / 2);
       await dist.lockTokens($AMPL(100), ONE_YEAR);
+      checkAprox(await dist.unlockDuration(), ONE_YEAR, 86400);
+      await ampl.connect(anotherAccount).approve(dist.target, $AMPL(200));
+      await dist.connect(anotherAccount).stake($AMPL(200));
       await TimeHelpers.increaseTime(ONE_YEAR / 10);
+      checkAprox(await dist.unlockDuration(), (ONE_YEAR * 9) / 10, 86400);
     });
 
     describe("when user history does exist", async function () {
-      it("should return the system state", async function () {
-        const r = await dist.updateAccounting.staticCall();
-        const t = await TimeHelpers.currentTime();
-        checkAmplAprox(r[0], 130);
-        checkAmplAprox(r[1], 70);
-        const timeElapsed = t - _t;
-        expect(r[2] / $AMPL(100) / InitialSharesPerToken)
-          .to.gte(timeElapsed - 5)
-          .to.lte(timeElapsed + 5);
-        expect(r[3] / $AMPL(100) / InitialSharesPerToken)
-          .to.gte(timeElapsed - 5)
-          .to.lte(timeElapsed + 5);
-        checkAmplAprox(r[4], 70);
-        checkAmplAprox(r[4], 70);
-        expect(r[5] - _r[5])
-          .to.gte(timeElapsed - 1)
-          .to.lte(timeElapsed + 1);
+      describe("current state, without additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(0, await owner.getAddress(), 0);
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 130);
+          checkAmplAprox(r[1], 70);
+          expect(r[2]).to.eq($AMPL(100));
+          expect(r[3]).to.eq($AMPL(300));
+          checkAmplAprox(r[4], 26.25);
+          const timeElapsed = t - _t;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+          await expect(await dist.unstake($AMPL(100)))
+            .to.emit(dist, "TokensClaimed")
+            .withArgs(await owner.getAddress(), "52500015952");
+        });
+      });
+
+      describe("current state, with additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(0, await owner.getAddress(), $AMPL(100));
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 130);
+          checkAmplAprox(r[1], 70);
+          expect(r[2]).to.eq($AMPL(200));
+          expect(r[3]).to.eq($AMPL(400));
+          checkAmplAprox(r[4], 26.25);
+          const timeElapsed = t - _t;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+          await ampl.approve(dist.target, $AMPL(100));
+          await dist.stake($AMPL(100));
+          await expect(await dist.unstake($AMPL(200)))
+            .to.emit(dist, "TokensClaimed")
+            .withArgs(await owner.getAddress(), "52500017834");
+        });
+      });
+
+      describe("after 3 months, without additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(ONE_YEAR / 4, await owner.getAddress(), 0);
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 80);
+          checkAmplAprox(r[1], 120);
+          expect(r[2]).to.eq($AMPL(100));
+          expect(r[3]).to.eq($AMPL(300));
+          checkAmplAprox(r[4], 65.8);
+          const timeElapsed = t - _t + ONE_YEAR / 4;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+
+          await TimeHelpers.increaseTime(ONE_YEAR / 4);
+          await expect(await dist.unstake($AMPL(100)))
+            .to.emit(dist, "TokensClaimed")
+            .withArgs(await owner.getAddress(), "65806466635");
+        });
+      });
+
+      describe("after 3 months, with additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(
+            ONE_YEAR / 4,
+            await owner.getAddress(),
+            $AMPL(100),
+          );
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 80);
+          checkAmplAprox(r[1], 120);
+          expect(r[2]).to.eq($AMPL(200));
+          expect(r[3]).to.eq($AMPL(400));
+          checkAmplAprox(r[4], 73.3333);
+          const timeElapsed = t - _t + ONE_YEAR / 4;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+          await ampl.approve(dist.target, $AMPL(100));
+          await dist.stake($AMPL(100));
+          await TimeHelpers.increaseTime(ONE_YEAR / 4);
+          checkAprox(await dist.unlockDuration(), 0.65 * ONE_YEAR, 86400);
+          await expect(await dist.unstake($AMPL(200)))
+            .to.emit(dist, "TokensClaimed")
+            .withArgs(await owner.getAddress(), "73333353473");
+          await TimeHelpers.increaseTime(ONE_YEAR * 10);
+          await expect(await dist.connect(anotherAccount).unstake($AMPL(200)))
+            .to.emit(dist, "TokensClaimed")
+            .withArgs(await anotherAccount.getAddress(), "126666646527");
+          expect(await dist.unlockDuration()).to.eq(0);
+        });
       });
     });
 
     describe("when user history does not exist", async function () {
-      it("should return the system state", async function () {
-        const r = dist.interface.decodeFunctionResult(
-          "updateAccounting",
-          await ethers.provider.call({
-            from: ethers.ZeroAddress,
-            to: dist.target,
-            data: dist.interface.encodeFunctionData("updateAccounting"),
-          }),
-        );
+      describe("current state, with no additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(0, ethers.ZeroAddress, 0);
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 130);
+          checkAmplAprox(r[1], 70);
+          expect(r[2]).to.eq(0n);
+          expect(r[3]).to.eq($AMPL(300));
+          checkAmplAprox(r[4], 0);
+          const timeElapsed = t - _t;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+        });
+      });
 
-        const t = await TimeHelpers.currentTime();
-        checkAmplAprox(r[0], 130);
-        checkAmplAprox(r[1], 70);
-        const timeElapsed = t - _t;
-        expect(r[2] / $AMPL(100) / InitialSharesPerToken).to.eq(0n);
-        expect(r[3] / $AMPL(100) / InitialSharesPerToken)
-          .to.gte(timeElapsed - 5)
-          .to.lte(timeElapsed + 5);
-        checkAmplAprox(r[4], 0);
-        expect(r[5] - _r[5])
-          .to.gte(timeElapsed - 1)
-          .to.lte(timeElapsed + 1);
+      describe("current state, with additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(0, ethers.ZeroAddress, $AMPL(100));
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 130);
+          checkAmplAprox(r[1], 70);
+          expect(r[2]).to.eq($AMPL(100));
+          expect(r[3]).to.eq($AMPL(400));
+          checkAmplAprox(r[4], 0);
+          const timeElapsed = t - _t;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+        });
+      });
+
+      describe("after 3 months, without additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(ONE_YEAR / 4, ethers.ZeroAddress, 0);
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 79.99);
+          checkAmplAprox(r[1], 120);
+          expect(r[2]).to.eq(0n);
+          expect(r[3]).to.eq($AMPL(300));
+          checkAmplAprox(r[4], 0);
+          const timeElapsed = t - _t + ONE_YEAR / 4;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+        });
+      });
+
+      describe("after 3 months, with additional stake", function () {
+        it("should return the system state", async function () {
+          const r = await dist.previewRewards(
+            ONE_YEAR / 4,
+            ethers.ZeroAddress,
+            $AMPL(100),
+          );
+          const t = await TimeHelpers.currentTime();
+          checkAmplAprox(r[0], 79.99);
+          checkAmplAprox(r[1], 120);
+          expect(r[2]).to.eq($AMPL(100));
+          expect(r[3]).to.eq($AMPL(400));
+          checkAmplAprox(r[4], 16.666);
+          const timeElapsed = t - _t + ONE_YEAR / 4;
+          expect(r[5] - _r[5])
+            .to.gte(timeElapsed - 1)
+            .to.lte(timeElapsed + 1);
+        });
       });
     });
   });

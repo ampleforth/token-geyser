@@ -45,7 +45,7 @@ async function setupContracts() {
 }
 
 async function totalRewardsFor(account) {
-  const r = await dist.connect(account).updateAccounting.staticCall();
+  const r = await dist.previewRewards.staticCall(0, await account.getAddress(), 0);
   return r[4];
 }
 
@@ -120,7 +120,7 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).stake($AMPL(50));
         await TimeHelpers.increaseTime(ONE_YEAR);
         await dist.connect(anotherAccount).updateAccounting();
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 100);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 50);
       });
       it("should update the total staked and rewards", async function () {
         await dist.connect(anotherAccount).unstake($AMPL(30));
@@ -128,7 +128,7 @@ describe("unstaking", function () {
         expect(
           await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(20));
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 40);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 20);
       });
       it("should transfer back staked tokens + rewards", async function () {
         const _b = await ampl.balanceOf.staticCall(await anotherAccount.getAddress());
@@ -167,7 +167,7 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).stake($AMPL(500));
         await TimeHelpers.increaseTime(12 * ONE_HOUR);
         await dist.connect(anotherAccount).updateAccounting();
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 1000);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 500);
       });
       it("should update the total staked and rewards", async function () {
         await dist.connect(anotherAccount).unstake($AMPL(250));
@@ -175,7 +175,7 @@ describe("unstaking", function () {
         expect(
           await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(250));
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 625); // (.5 * .75 * 1000) + 250
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 312.5); // (.5 * .75 * 1000) + 250
       });
       it("should transfer back staked tokens + rewards", async function () {
         const _b = await ampl.balanceOf.staticCall(await anotherAccount.getAddress());
@@ -217,7 +217,7 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).updateAccounting();
       });
       it("checkTotalRewards", async function () {
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 51);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 25.5);
       });
       it("should update the total staked and rewards", async function () {
         await dist.connect(anotherAccount).unstake($AMPL(30));
@@ -225,7 +225,7 @@ describe("unstaking", function () {
         expect(
           await dist.totalStakedBy.staticCall(await anotherAccount.getAddress()),
         ).to.eq($AMPL(70));
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 40.8);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 20.4);
       });
       it("should transfer back staked tokens + rewards", async function () {
         const _b = await ampl.balanceOf.staticCall(await anotherAccount.getAddress());
@@ -248,7 +248,7 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).stake($AMPL(10));
         await TimeHelpers.increaseTime(ONE_YEAR);
         await dist.connect(anotherAccount).updateAccounting();
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 100);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 50);
       });
 
       it("should use updated user accounting", async function () {
@@ -291,13 +291,13 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).updateAccounting();
         await dist.updateAccounting();
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(100));
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 45.6);
-        checkAmplAprox(await totalRewardsFor(owner), 30.4);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 22.8);
+        checkAmplAprox(await totalRewardsFor(owner), 15.2);
       });
       it("checkTotalRewards", async function () {
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(100));
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 45.6);
-        checkAmplAprox(await totalRewardsFor(owner), 30.4);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 22.8);
+        checkAmplAprox(await totalRewardsFor(owner), 15.2);
       });
       it("should update the total staked and rewards", async function () {
         await dist.connect(anotherAccount).unstake($AMPL(30));
@@ -308,8 +308,8 @@ describe("unstaking", function () {
         expect(await dist.totalStakedBy.staticCall(await owner.getAddress())).to.eq(
           $AMPL(50),
         );
-        checkAmplAprox(await totalRewardsFor(anotherAccount), 18.24);
-        checkAmplAprox(await totalRewardsFor(owner), 30.4);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), 9.12);
+        checkAmplAprox(await totalRewardsFor(owner), 15.2);
       });
       it("should transfer back staked tokens + rewards", async function () {
         const _b = await ampl.balanceOf.staticCall(await anotherAccount.getAddress());
@@ -342,8 +342,8 @@ describe("unstaking", function () {
         await dist.connect(anotherAccount).updateAccounting();
         await dist.updateAccounting();
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(18000));
-        checkAmplAprox(await totalRewardsFor(anotherAccount), rewardsAnotherAccount);
-        checkAmplAprox(await totalRewardsFor(owner), rewardsOwner);
+        checkAmplAprox(await totalRewardsFor(anotherAccount), rewardsAnotherAccount / 2);
+        checkAmplAprox(await totalRewardsFor(owner), rewardsOwner / 2);
       });
       it("should update the total staked and rewards", async function () {
         await dist.connect(anotherAccount).unstake($AMPL(10000));
@@ -353,7 +353,7 @@ describe("unstaking", function () {
           $AMPL(8000),
         );
         checkAmplAprox(await totalRewardsFor(anotherAccount), 0);
-        checkAmplAprox(await totalRewardsFor(owner), rewardsOwner);
+        checkAmplAprox(await totalRewardsFor(owner), rewardsOwner / 2);
         await dist.unstake($AMPL(8000));
         expect(await dist.totalStaked.staticCall()).to.eq($AMPL(0));
         expect(
@@ -389,7 +389,7 @@ describe("unstaking", function () {
       await dist.connect(anotherAccount).updateAccounting();
     });
     it("should return the reward amount", async function () {
-      checkAmplAprox(await totalRewardsFor(anotherAccount), 100);
+      checkAmplAprox(await totalRewardsFor(anotherAccount), 50);
       checkAmplAprox(
         await dist.connect(anotherAccount).unstake.staticCall($AMPL(30)),
         60,
